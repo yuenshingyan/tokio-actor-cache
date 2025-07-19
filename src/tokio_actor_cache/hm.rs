@@ -12,6 +12,14 @@ use tokio::time::{interval, Instant};
 
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
+    Remove {
+        key: K,
+        resp_tx: oneshot::Sender<Option<V>>,
+    },
+    ContainsKey {
+        key: K,
+        resp_tx: oneshot::Sender<bool>,
+    },
     Get {
         key: K,
         resp_tx: oneshot::Sender<Option<V>>,
@@ -29,6 +37,30 @@ pub struct HashMapCache<K, V> {
 }
 
 impl<K, V> HashMapCache<K, V> {
+    pub async fn remove(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let remove_cmd = HashMapCmd::Remove { key, resp_tx };
+        self.tx
+            .send(remove_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
+    pub async fn contains_key(&self, key: K) -> Result<bool, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let contains_key_cmd = HashMapCmd::ContainsKey { key, resp_tx };
+        self.tx
+            .send(contains_key_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_cmd = HashMapCmd::Get { key, resp_tx };
@@ -77,6 +109,18 @@ impl<K, V> HashMapCache<K, V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashMapCmd::<K, V>::Remove { key, resp_tx } => {
+                                    let val = hm.remove(&key).and_then(|val_ex| Some(val_ex.val));
+                                    if let Err(_) = resp_tx.send(val) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                                HashMapCmd::<K, V>::ContainsKey {key, resp_tx } => {
+                                    let is_contains_key = hm.contains_key(&key);
+                                    if let Err(_) = resp_tx.send(is_contains_key) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashMapCmd::<K, V>::Insert { key, val, duration } => {
                                     let expiration = duration.and_then(|d| Some(Instant::now() + d));
                                     let val_ex = ValueEx { val, expiration };
