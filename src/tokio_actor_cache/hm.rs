@@ -1,0 +1,99 @@
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::time::Duration;
+
+use crate::tokio_actor_cache::data_struct::ValueEx;
+use crate::tokio_actor_cache::error::TokioActorCacheError;
+
+use tokio::sync::mpsc::Sender;
+use tokio::sync::{mpsc, oneshot};
+use tokio::time::{interval, Instant};
+
+#[derive(Debug)]
+pub enum HashMapCmd<K, V> {
+    Get {
+        key: K,
+        resp_tx: oneshot::Sender<Option<V>>,
+    },
+    Insert {
+        key: K,
+        val: V,
+        duration: Option<Duration>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct HashMapCache<K, V> {
+    pub tx: Sender<HashMapCmd<K, V>>,
+}
+
+impl<K, V> HashMapCache<K, V> {
+    pub async fn get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let get_cmd = HashMapCmd::Get { key, resp_tx };
+        self.tx
+            .send(get_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
+    pub async fn insert(
+        &self,
+        key: K,
+        val: V,
+        duration: Option<Duration>,
+    ) -> Result<(), TokioActorCacheError> {
+        let insert_cmd = HashMapCmd::Insert { key, val, duration };
+        self.tx
+            .send(insert_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)
+    }
+
+    pub async fn new(buffer: usize) -> Self
+    where
+        K: Debug + Clone + Eq + Hash + Send + std::marker::Send + 'static,
+        V: Debug + Clone + Eq + Hash + Send + std::marker::Send + 'static,
+    {
+        let mut hm = HashMap::<K, ValueEx<V>>::new();
+
+        let (tx, mut rx) = mpsc::channel(buffer);
+
+        tokio::spawn(async move {
+            let mut ticker = interval(Duration::from_millis(100));
+            loop {
+                tokio::select! {
+                    _ = ticker.tick() => {
+                        // Expire key-val.
+                        hm.retain(|_k, val_ex| match val_ex.expiration {
+                            Some(exp) => Instant::now() < exp,
+                            None => true,
+                        });
+                    }
+                    command = rx.recv() => {
+                        if let Some(cmd) = command {
+                            match cmd {
+                                HashMapCmd::<K, V>::Insert { key, val, duration } => {
+                                    let expiration = duration.and_then(|d| Some(Instant::now() + d));
+                                    let val_ex = ValueEx { val, expiration };
+                                    hm.insert(key, val_ex);
+                                }
+                                HashMapCmd::<K, V>::Get { key, resp_tx } => {
+                                    let val = hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()));
+                                    if let Err(_) = resp_tx.send(val) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        Self { tx }
+    }
+}
