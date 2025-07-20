@@ -12,6 +12,9 @@ use tokio::time::{interval, Instant};
 
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
+    GetAll {
+        resp_tx: oneshot::Sender<HashMap<K, V>>,
+    },
     Clear,
     Remove {
         key: K,
@@ -39,6 +42,18 @@ pub struct HashMapCache<K, V> {
 }
 
 impl<K, V> HashMapCache<K, V> {
+    pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let get_all_cmd = HashMapCmd::GetAll { resp_tx };
+        self.tx
+            .send(get_all_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashMapCmd::Clear;
         self.tx
@@ -123,6 +138,12 @@ impl<K, V> HashMapCache<K, V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashMapCmd::<K, V>::GetAll { resp_tx} => {
+                                    let val = hm.clone().into_iter().map(|(key, val_ex)| (key, val_ex.val)).collect::<HashMap<K, V>>();
+                                    if let Err(_) = resp_tx.send(val) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashMapCmd::<K, V>::Clear => {
                                     hm.clear();
                                 }
