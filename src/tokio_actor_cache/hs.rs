@@ -8,7 +8,7 @@ use crate::tokio_actor_cache::error::TokioActorCacheError;
 
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::{interval, Instant};
+use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum HashSetCmd<V> {
@@ -104,7 +104,7 @@ impl<V> HashSetCache<V> {
                                     if is_exist {
                                         hs.retain(|val_ex| val_ex.val == val);
                                     }
-                                    
+
                                     if let Err(_) = resp_tx.send(is_exist) {
                                         println!("the receiver dropped");
                                     }

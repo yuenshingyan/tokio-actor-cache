@@ -7,7 +7,7 @@ use crate::tokio_actor_cache::error::TokioActorCacheError;
 
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::{interval, Instant};
+use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum VecCmd<V> {

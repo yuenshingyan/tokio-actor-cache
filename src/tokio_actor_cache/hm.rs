@@ -8,7 +8,7 @@ use crate::tokio_actor_cache::error::TokioActorCacheError;
 
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::{interval, Instant};
+use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
@@ -138,7 +138,7 @@ impl<K, V> HashMapCache<K, V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
-                                HashMapCmd::<K, V>::GetAll { resp_tx} => {
+                                HashMapCmd::<K, V>::GetAll { resp_tx } => {
                                     let val = hm.clone().into_iter().map(|(key, val_ex)| (key, val_ex.val)).collect::<HashMap<K, V>>();
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
