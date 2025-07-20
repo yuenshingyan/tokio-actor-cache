@@ -29,6 +29,14 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_contains() {
+        let hs_cache = HashSetCache::new(32).await;
+        hs_cache.insert(10, None, None).await.unwrap();
+        let val = hs_cache.contains(10).await.unwrap();
+        assert_eq!(val, true);
+    }
+
+    #[tokio::test]
     async fn test_insert_ex() {
         let hs_cache = HashSetCache::new(32).await;
         hs_cache.insert(10, None, None).await.unwrap();
