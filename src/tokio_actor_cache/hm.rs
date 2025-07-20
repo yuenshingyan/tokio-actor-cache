@@ -12,6 +12,7 @@ use tokio::time::{interval, Instant};
 
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
+    Clear,
     Remove {
         key: K,
         resp_tx: oneshot::Sender<Option<V>>,
@@ -37,6 +38,14 @@ pub struct HashMapCache<K, V> {
 }
 
 impl<K, V> HashMapCache<K, V> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
+        let clear_cmd = HashMapCmd::Clear;
+        self.tx
+            .send(clear_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)
+    }
+
     pub async fn remove(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let remove_cmd = HashMapCmd::Remove { key, resp_tx };
@@ -99,16 +108,22 @@ impl<K, V> HashMapCache<K, V> {
             let mut ticker = interval(Duration::from_millis(100));
             loop {
                 tokio::select! {
+
+                    // Expire key-val.
                     _ = ticker.tick() => {
-                        // Expire key-val.
                         hm.retain(|_k, val_ex| match val_ex.expiration {
                             Some(exp) => Instant::now() < exp,
                             None => true,
                         });
                     }
+
+                    // Handle commands.
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashMapCmd::<K, V>::Clear => {
+                                    hm.clear();
+                                }
                                 HashMapCmd::<K, V>::Remove { key, resp_tx } => {
                                     let val = hm.remove(&key).and_then(|val_ex| Some(val_ex.val));
                                     if let Err(_) = resp_tx.send(val) {
