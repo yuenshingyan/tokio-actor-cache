@@ -28,7 +28,8 @@ pub enum HashMapCmd<K, V> {
     Insert {
         key: K,
         val: V,
-        duration: Option<Duration>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
     },
 }
 
@@ -86,9 +87,10 @@ impl<K, V> HashMapCache<K, V> {
         &self,
         key: K,
         val: V,
-        duration: Option<Duration>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
-        let insert_cmd = HashMapCmd::Insert { key, val, duration };
+        let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
         self.tx
             .send(insert_cmd)
             .await
@@ -136,10 +138,14 @@ impl<K, V> HashMapCache<K, V> {
                                         println!("the receiver dropped");
                                     }
                                 }
-                                HashMapCmd::<K, V>::Insert { key, val, duration } => {
-                                    let expiration = duration.and_then(|d| Some(Instant::now() + d));
+                                HashMapCmd::<K, V>::Insert { key, val, ex, nx } => {
+                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                     let val_ex = ValueEx { val, expiration };
-                                    hm.insert(key, val_ex);
+                                    if nx.is_some() && nx == Some(true) {
+                                        hm.entry(key).or_insert(val_ex);
+                                    } else {
+                                        hm.insert(key, val_ex);
+                                    }
                                 }
                                 HashMapCmd::<K, V>::Get { key, resp_tx } => {
                                     let val = hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()));
