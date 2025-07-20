@@ -5,34 +5,14 @@ pub mod tokio_actor_cache {
     pub mod hs;
     pub mod vec;
 }
-
-use std::{collections::HashMap, time::Duration};
+pub mod unittests {
+    pub mod hs;
+}
 
 use crate::tokio_actor_cache::{hm::HashMapCache, hs::HashSetCache, vec::VecCache};
 
 #[tokio::main]
 async fn main() {
-    let hm_cache = HashMapCache::new(32).await;
-
-    // SET key in hm.
-    hm_cache.insert("a", 10, None).await.expect("failed to insert key into hm");
-
-    // // GET val with key from hm.
-    // let val = hm_cache.get("a").await.expect("failed to get key");
-    // println!("{:?}", val);
-
-    // tokio::time::sleep(Duration::from_secs(2)).await;
-
-    // // GET val with key from hm.
-    // let val = hm_cache.get("a").await.expect("failed to get key");
-    // println!("{:?}", val);
-
-    let val = hm_cache.remove("a").await.expect("failed to remove key from hm");
-    println!("{:?}", val);
-
-    let val = hm_cache.get("a").await.expect("failed to get key");
-    println!("{:?}", val);
-
     // let hs_cache = HashSetCache::new(32).await;
 
     // // HSET val in hs.
