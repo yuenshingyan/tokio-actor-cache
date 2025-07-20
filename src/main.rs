@@ -6,7 +6,7 @@ pub mod tokio_actor_cache {
     pub mod vec;
 }
 
-use std::time::Duration;
+use std::{collections::HashMap, time::Duration};
 
 use crate::tokio_actor_cache::{hm::HashMapCache, hs::HashSetCache, vec::VecCache};
 
