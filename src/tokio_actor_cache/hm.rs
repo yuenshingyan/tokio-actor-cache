@@ -114,8 +114,8 @@ impl<K, V> HashMapCache<K, V> {
 
     pub async fn new(buffer: usize) -> Self
     where
-        K: Debug + Clone + Eq + Hash + Send + std::marker::Send + 'static,
-        V: Debug + Clone + Eq + Hash + Send + std::marker::Send + 'static,
+        K: Debug + Clone + Eq + Hash + Send + 'static,
+        V: Debug + Clone + Eq + Hash + Send + 'static,
     {
         let mut hm = HashMap::<K, ValueEx<V>>::new();
 

@@ -93,7 +93,7 @@ impl<V> HashSetCache<V> {
 
     pub async fn new(buffer: usize) -> Self
     where
-        V: Clone + Eq + Hash + Debug + Send + std::marker::Send + 'static,
+        V: Clone + Eq + Hash + Debug + Send + 'static,
     {
         let mut hs = HashSet::new();
 
