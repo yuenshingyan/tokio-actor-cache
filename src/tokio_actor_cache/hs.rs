@@ -22,7 +22,8 @@ pub enum HashSetCmd<V> {
     },
     Insert {
         val: V,
-        duration: Option<Duration>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
     },
 }
 
@@ -52,7 +53,7 @@ impl<V> HashSetCache<V> {
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn get(&self) -> Result<HashSet<V>, TokioActorCacheError> {
+    pub async fn get_all(&self) -> Result<HashSet<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
             .send(HashSetCmd::Get { resp_tx })
@@ -66,10 +67,11 @@ impl<V> HashSetCache<V> {
     pub async fn insert(
         &self,
         val: V,
-        duration: Option<Duration>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
-            .send(HashSetCmd::Insert { val, duration })
+            .send(HashSetCmd::Insert { val, ex, nx })
             .await
             .map_err(|_| return TokioActorCacheError::Send)
     }
@@ -102,17 +104,21 @@ impl<V> HashSetCache<V> {
                                 HashSetCmd::<V>::Remove { val, resp_tx } => {
                                     let is_exist = hs.iter().any(|val_ex| val_ex.val == val);
                                     if is_exist {
-                                        hs.retain(|val_ex| val_ex.val == val);
+                                        hs.retain(|val_ex| val_ex.val != val);
                                     }
 
                                     if let Err(_) = resp_tx.send(is_exist) {
                                         println!("the receiver dropped");
                                     }
                                 }
-                                HashSetCmd::<V>::Insert { val, duration } => {
-                                    let expiration = duration.and_then(|d| Some(Instant::now() + d));
+                                HashSetCmd::<V>::Insert { val, ex, nx } => {
+                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                     let val_ex = ValueEx { val, expiration };
-                                    hs.insert(val_ex);
+                                    if nx.is_some() && nx == Some(true) && !hs.contains(&val_ex) {
+                                        hs.insert(val_ex);
+                                    } else {
+                                        hs.insert(val_ex);
+                                    }
                                 }
                                 HashSetCmd::<V>::Get { resp_tx } => {
                                     let val = hs
