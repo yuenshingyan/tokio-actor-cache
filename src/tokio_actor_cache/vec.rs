@@ -21,7 +21,7 @@ pub struct VecCache<V> {
 }
 
 impl<V> VecCache<V> {
-    pub async fn get(&self) -> Result<Vec<V>, TokioActorCacheError> {
+    pub async fn get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
             .send(VecCmd::Get { resp_tx })
