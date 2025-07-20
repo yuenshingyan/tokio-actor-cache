@@ -11,8 +11,23 @@ use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum VecCmd<V> {
-    Get { resp_tx: oneshot::Sender<Vec<V>> },
-    Push { val: V, duration: Option<Duration> },
+    Clear,
+    Remove {
+        val: V,
+        resp_tx: oneshot::Sender<bool>,
+    },
+    Contains {
+        val: V,
+        resp_tx: oneshot::Sender<bool>,
+    },
+    GetAll { 
+        resp_tx: oneshot::Sender<Vec<V>> 
+    },
+    Push { 
+        val: V, 
+        ex: Option<Duration>,
+        nx: Option<bool>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -21,10 +36,41 @@ pub struct VecCache<V> {
 }
 
 impl<V> VecCache<V> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
+        let clear_cmd = VecCmd::Clear;
+        self.tx
+            .send(clear_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)
+    }
+
+    pub async fn remove(&self, val: V) -> Result<bool, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let remove_cmd = VecCmd::Remove { val, resp_tx };
+        self.tx
+            .send(remove_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
+    pub async fn contains(&self, val: V) -> Result<bool, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.tx
+            .send(VecCmd::Contains { val, resp_tx })
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(VecCmd::Get { resp_tx })
+            .send(VecCmd::GetAll { resp_tx })
             .await
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx.await.map_err(|_| TokioActorCacheError::Receive)
@@ -33,10 +79,11 @@ impl<V> VecCache<V> {
     pub async fn push(
         &self,
         val: V,
-        duration: Option<Duration>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
-            .send(VecCmd::Push { val, duration })
+            .send(VecCmd::Push { val, ex, nx })
             .await
             .map_err(|_| TokioActorCacheError::Send)
     }
@@ -63,12 +110,35 @@ impl<V> VecCache<V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
-                                VecCmd::<V>::Push { val, duration } => {
-                                    let expiration = duration.and_then(|d| Some(Instant::now() + d));
-                                    let val_ex = ValueEx { val, expiration };
-                                    vec.push(val_ex);
+                                VecCmd::<V>::Clear => {
+                                    vec.clear();
                                 }
-                                VecCmd::<V>::Get { resp_tx } => {
+                                VecCmd::<V>::Remove { val, resp_tx } => {
+                                    let is_exist = vec.iter().any(|val_ex| val_ex.val == val);
+                                    if is_exist {
+                                        vec.retain(|val_ex| val_ex.val != val);
+                                    }
+
+                                    if let Err(_) = resp_tx.send(is_exist) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                                VecCmd::<V>::Contains { val, resp_tx } => {
+                                    let is_exist = vec.iter().any(|val_ex| val_ex.val == val);
+                                    if let Err(_) = resp_tx.send(is_exist) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                                VecCmd::<V>::Push { val, ex, nx } => {
+                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
+                                    let val_ex = ValueEx { val, expiration };
+                                    if nx.is_some() && nx == Some(true) && !vec.contains(&val_ex) {
+                                        vec.push(val_ex);
+                                    } else {
+                                        vec.push(val_ex);
+                                    }
+                                }
+                                VecCmd::<V>::GetAll { resp_tx } => {
                                     let val = vec
                                         .clone()
                                         .into_iter()
