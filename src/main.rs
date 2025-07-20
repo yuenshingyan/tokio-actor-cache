@@ -6,7 +6,7 @@ pub mod tokio_actor_cache {
     pub mod vec;
 }
 pub mod unittests {
-    pub mod hs;
+    pub mod hm;
 }
 
 use crate::tokio_actor_cache::{hm::HashMapCache, hs::HashSetCache, vec::VecCache};
