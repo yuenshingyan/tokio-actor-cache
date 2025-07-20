@@ -20,11 +20,11 @@ pub enum VecCmd<V> {
         val: V,
         resp_tx: oneshot::Sender<bool>,
     },
-    GetAll { 
-        resp_tx: oneshot::Sender<Vec<V>> 
+    GetAll {
+        resp_tx: oneshot::Sender<Vec<V>>,
     },
-    Push { 
-        val: V, 
+    Push {
+        val: V,
         ex: Option<Duration>,
         nx: Option<bool>,
     },

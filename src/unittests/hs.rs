@@ -40,7 +40,10 @@ mod tests {
     async fn test_insert_ex() {
         let hs_cache = HashSetCache::new(32).await;
         hs_cache.insert(10, None, None).await.unwrap();
-        hs_cache.insert(20, Some(Duration::from_secs(1)), None).await.unwrap();
+        hs_cache
+            .insert(20, Some(Duration::from_secs(1)), None)
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
         let val = hs_cache.get_all().await.unwrap();
         assert_eq!(val, HashSet::from([10]));
