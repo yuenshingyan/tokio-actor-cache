@@ -41,7 +41,7 @@ impl<V> VecCache<V> {
         self.tx
             .send(clear_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)
+            .map_err(|_| TokioActorCacheError::Send)
     }
 
     pub async fn remove(&self, val: V) -> Result<bool, TokioActorCacheError> {
@@ -50,7 +50,7 @@ impl<V> VecCache<V> {
         self.tx
             .send(remove_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)?;
+            .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)
@@ -61,7 +61,7 @@ impl<V> VecCache<V> {
         self.tx
             .send(VecCmd::Contains { val, resp_tx })
             .await
-            .map_err(|_| return TokioActorCacheError::Send)?;
+            .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)

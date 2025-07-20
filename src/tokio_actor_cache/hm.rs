@@ -48,7 +48,7 @@ impl<K, V> HashMapCache<K, V> {
         self.tx
             .send(get_all_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)?;
+            .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)
@@ -59,7 +59,7 @@ impl<K, V> HashMapCache<K, V> {
         self.tx
             .send(clear_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)
+            .map_err(|_| TokioActorCacheError::Send)
     }
 
     pub async fn remove(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
@@ -68,7 +68,7 @@ impl<K, V> HashMapCache<K, V> {
         self.tx
             .send(remove_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)?;
+            .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)
@@ -80,7 +80,7 @@ impl<K, V> HashMapCache<K, V> {
         self.tx
             .send(contains_key_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)?;
+            .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)
@@ -92,7 +92,7 @@ impl<K, V> HashMapCache<K, V> {
         self.tx
             .send(get_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)?;
+            .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)
@@ -109,7 +109,7 @@ impl<K, V> HashMapCache<K, V> {
         self.tx
             .send(insert_cmd)
             .await
-            .map_err(|_| return TokioActorCacheError::Send)
+            .map_err(|_| TokioActorCacheError::Send)
     }
 
     pub async fn new(buffer: usize) -> Self
