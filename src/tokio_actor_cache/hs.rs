@@ -40,8 +40,7 @@ impl<V> HashSetCache<V> {
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashSetCmd::Clear;
         self.tx
-            .send(clear_cmd)
-            .await
+            .try_send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -49,8 +48,7 @@ impl<V> HashSetCache<V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let remove_cmd = HashSetCmd::Remove { val, resp_tx };
         self.tx
-            .send(remove_cmd)
-            .await
+            .try_send(remove_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -60,8 +58,7 @@ impl<V> HashSetCache<V> {
     pub async fn contains(&self, val: V) -> Result<bool, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(HashSetCmd::Contains { val, resp_tx })
-            .await
+            .try_send(HashSetCmd::Contains { val, resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -71,8 +68,7 @@ impl<V> HashSetCache<V> {
     pub async fn get_all(&self) -> Result<HashSet<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(HashSetCmd::GetAll { resp_tx })
-            .await
+            .try_send(HashSetCmd::GetAll { resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -86,8 +82,7 @@ impl<V> HashSetCache<V> {
         nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
-            .send(HashSetCmd::Insert { val, ex, nx })
-            .await
+            .try_send(HashSetCmd::Insert { val, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 

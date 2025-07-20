@@ -46,8 +46,7 @@ impl<K, V> HashMapCache<K, V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_all_cmd = HashMapCmd::GetAll { resp_tx };
         self.tx
-            .send(get_all_cmd)
-            .await
+            .try_send(get_all_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -57,8 +56,7 @@ impl<K, V> HashMapCache<K, V> {
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashMapCmd::Clear;
         self.tx
-            .send(clear_cmd)
-            .await
+            .try_send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -66,8 +64,7 @@ impl<K, V> HashMapCache<K, V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let remove_cmd = HashMapCmd::Remove { key, resp_tx };
         self.tx
-            .send(remove_cmd)
-            .await
+            .try_send(remove_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -78,8 +75,7 @@ impl<K, V> HashMapCache<K, V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let contains_key_cmd = HashMapCmd::ContainsKey { key, resp_tx };
         self.tx
-            .send(contains_key_cmd)
-            .await
+            .try_send(contains_key_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -90,8 +86,7 @@ impl<K, V> HashMapCache<K, V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_cmd = HashMapCmd::Get { key, resp_tx };
         self.tx
-            .send(get_cmd)
-            .await
+            .try_send(get_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -107,8 +102,7 @@ impl<K, V> HashMapCache<K, V> {
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
         self.tx
-            .send(insert_cmd)
-            .await
+            .try_send(insert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 

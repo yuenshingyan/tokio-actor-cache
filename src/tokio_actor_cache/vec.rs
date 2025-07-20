@@ -39,8 +39,7 @@ impl<V> VecCache<V> {
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = VecCmd::Clear;
         self.tx
-            .send(clear_cmd)
-            .await
+            .try_send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -48,8 +47,7 @@ impl<V> VecCache<V> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let remove_cmd = VecCmd::Remove { val, resp_tx };
         self.tx
-            .send(remove_cmd)
-            .await
+            .try_send(remove_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -59,8 +57,7 @@ impl<V> VecCache<V> {
     pub async fn contains(&self, val: V) -> Result<bool, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(VecCmd::Contains { val, resp_tx })
-            .await
+            .try_send(VecCmd::Contains { val, resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -70,8 +67,7 @@ impl<V> VecCache<V> {
     pub async fn get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(VecCmd::GetAll { resp_tx })
-            .await
+            .try_send(VecCmd::GetAll { resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx.await.map_err(|_| TokioActorCacheError::Receive)
     }
@@ -83,8 +79,7 @@ impl<V> VecCache<V> {
         nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
-            .send(VecCmd::Push { val, ex, nx })
-            .await
+            .try_send(VecCmd::Push { val, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 
