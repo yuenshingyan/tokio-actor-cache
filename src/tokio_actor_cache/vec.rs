@@ -11,6 +11,10 @@ use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum VecCmd<V> {
+    TTL {
+        val: V,
+        resp_tx: oneshot::Sender<Option<Duration>>,
+    },
     Clear,
     Remove {
         val: V,
@@ -36,6 +40,17 @@ pub struct VecCache<V> {
 }
 
 impl<V> VecCache<V> {
+    pub async fn ttl(&self, val: V) -> Result<Option<Duration>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let ttl_cmd = VecCmd::TTL { val, resp_tx };
+        self.tx
+            .try_send(ttl_cmd)
+            .map_err(|_| TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = VecCmd::Clear;
         self.tx
@@ -105,6 +120,19 @@ impl<V> VecCache<V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                VecCmd::<V>::TTL { val, resp_tx } => {
+                                    let mut ttl = None;
+                                    for val_ex in &vec {
+                                        if val_ex.val == val {
+                                            ttl = val_ex.expiration.and_then(|ex| {
+                                                ex.checked_duration_since(Instant::now())
+                                            });
+                                        }
+                                    }
+                                    if let Err(_) = resp_tx.send(ttl) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 VecCmd::<V>::Clear => {
                                     vec.clear();
                                 }

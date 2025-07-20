@@ -5,6 +5,17 @@ mod tests {
     use crate::tokio_actor_cache::hm::HashMapCache;
 
     #[tokio::test]
+    async fn test_ttl() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .insert("a", 10, Some(Duration::from_secs(1)), None)
+            .await
+            .unwrap();
+        let ttl = hm_cache.ttl("a").await.unwrap();
+        assert!(Some(Duration::from_secs(1)) > ttl)
+    }
+
+    #[tokio::test]
     async fn test_clear() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache

@@ -6,6 +6,17 @@ mod tests {
     use crate::tokio_actor_cache::vec::VecCache;
 
     #[tokio::test]
+    async fn test_ttl() {
+        let vec_cache = VecCache::new(32).await;
+        vec_cache
+            .push(10, Some(Duration::from_secs(1)), None)
+            .await
+            .unwrap();
+        let ttl = vec_cache.ttl(10).await.unwrap();
+        assert!(Some(Duration::from_secs(1)) > ttl)
+    }
+
+    #[tokio::test]
     async fn test_clear() {
         let vec_cache = VecCache::new(32).await;
         vec_cache.push(10, None, None).await.unwrap();

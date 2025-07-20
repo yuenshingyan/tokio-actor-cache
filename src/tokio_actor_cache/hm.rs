@@ -12,6 +12,10 @@ use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
+    TTL {
+        key: K,
+        resp_tx: oneshot::Sender<Option<Duration>>,
+    },
     GetAll {
         resp_tx: oneshot::Sender<HashMap<K, V>>,
     },
@@ -42,6 +46,17 @@ pub struct HashMapCache<K, V> {
 }
 
 impl<K, V> HashMapCache<K, V> {
+    pub async fn ttl(&self, key: K) -> Result<Option<Duration>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let ttl_cmd = HashMapCmd::TTL { key, resp_tx };
+        self.tx
+            .try_send(ttl_cmd)
+            .map_err(|_| TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_all_cmd = HashMapCmd::GetAll { resp_tx };
@@ -132,6 +147,16 @@ impl<K, V> HashMapCache<K, V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashMapCmd::<K, V>::TTL { key, resp_tx } => {
+                                    let ttl = hm.get(&key).and_then(|val_ex| {
+                                        val_ex.expiration.and_then(|ex| {
+                                                ex.checked_duration_since(Instant::now())
+                                        })
+                                    });
+                                    if let Err(_) = resp_tx.send(ttl) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashMapCmd::<K, V>::GetAll { resp_tx } => {
                                     let val = hm.clone().into_iter().map(|(key, val_ex)| (key, val_ex.val)).collect::<HashMap<K, V>>();
                                     if let Err(_) = resp_tx.send(val) {

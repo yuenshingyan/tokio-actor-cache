@@ -12,6 +12,10 @@ use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum HashSetCmd<V> {
+    TTL {
+        val: V,
+        resp_tx: oneshot::Sender<Option<Duration>>,
+    },
     Clear,
     Remove {
         val: V,
@@ -37,6 +41,17 @@ pub struct HashSetCache<V> {
 }
 
 impl<V> HashSetCache<V> {
+    pub async fn ttl(&self, val: V) -> Result<Option<Duration>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let ttl_cmd = HashSetCmd::TTL { val, resp_tx };
+        self.tx
+            .try_send(ttl_cmd)
+            .map_err(|_| TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashSetCmd::Clear;
         self.tx
@@ -108,6 +123,19 @@ impl<V> HashSetCache<V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashSetCmd::<V>::TTL { val, resp_tx } => {
+                                    let mut ttl = None;
+                                    for val_ex in &hs {
+                                        if val_ex.val == val {
+                                            ttl = val_ex.expiration.and_then(|ex| {
+                                                ex.checked_duration_since(Instant::now())
+                                            });
+                                        }
+                                    }
+                                    if let Err(_) = resp_tx.send(ttl) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashSetCmd::<V>::Clear => {
                                     hs.clear();
                                 }
