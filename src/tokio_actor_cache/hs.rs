@@ -17,7 +17,11 @@ pub enum HashSetCmd<V> {
         val: V,
         resp_tx: oneshot::Sender<bool>,
     },
-    Get {
+    Contains {
+        val: V,
+        resp_tx: oneshot::Sender<bool>,
+    },
+    GetAll {
         resp_tx: oneshot::Sender<HashSet<V>>,
     },
     Insert {
@@ -53,10 +57,21 @@ impl<V> HashSetCache<V> {
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
+    pub async fn contains(&self, val: V) -> Result<bool, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        self.tx
+            .send(HashSetCmd::Contains { val, resp_tx })
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn get_all(&self) -> Result<HashSet<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(HashSetCmd::Get { resp_tx })
+            .send(HashSetCmd::GetAll { resp_tx })
             .await
             .map_err(|_| return TokioActorCacheError::Send)?;
         resp_rx
@@ -111,16 +126,13 @@ impl<V> HashSetCache<V> {
                                         println!("the receiver dropped");
                                     }
                                 }
-                                HashSetCmd::<V>::Insert { val, ex, nx } => {
-                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    let val_ex = ValueEx { val, expiration };
-                                    if nx.is_some() && nx == Some(true) && !hs.contains(&val_ex) {
-                                        hs.insert(val_ex);
-                                    } else {
-                                        hs.insert(val_ex);
+                                HashSetCmd::<V>::Contains { val, resp_tx } => {
+                                    let is_exist = hs.iter().any(|val_ex| val_ex.val == val);
+                                    if let Err(_) = resp_tx.send(is_exist) {
+                                        println!("the receiver dropped");
                                     }
                                 }
-                                HashSetCmd::<V>::Get { resp_tx } => {
+                                HashSetCmd::<V>::GetAll { resp_tx } => {
                                     let val = hs
                                         .iter()
                                         .map(|h| h.val.clone())
@@ -128,6 +140,15 @@ impl<V> HashSetCache<V> {
                                         .clone();
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
+                                    }
+                                }
+                                HashSetCmd::<V>::Insert { val, ex, nx } => {
+                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
+                                    let val_ex = ValueEx { val, expiration };
+                                    if nx.is_some() && nx == Some(true) && !hs.contains(&val_ex) {
+                                        hs.insert(val_ex);
+                                    } else {
+                                        hs.insert(val_ex);
                                     }
                                 }
                             }
