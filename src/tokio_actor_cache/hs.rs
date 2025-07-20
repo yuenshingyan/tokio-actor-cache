@@ -12,6 +12,11 @@ use tokio::time::{interval, Instant};
 
 #[derive(Debug)]
 pub enum HashSetCmd<V> {
+    Clear,
+    Remove {
+        val: V,
+        resp_tx: oneshot::Sender<bool>,
+    },
     Get {
         resp_tx: oneshot::Sender<HashSet<V>>,
     },
@@ -27,6 +32,26 @@ pub struct HashSetCache<V> {
 }
 
 impl<V> HashSetCache<V> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
+        let clear_cmd = HashSetCmd::Clear;
+        self.tx
+            .send(clear_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)
+    }
+
+    pub async fn remove(&self, val: V) -> Result<bool, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let remove_cmd = HashSetCmd::Remove { val, resp_tx };
+        self.tx
+            .send(remove_cmd)
+            .await
+            .map_err(|_| return TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
     pub async fn get(&self) -> Result<HashSet<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
@@ -71,6 +96,19 @@ impl<V> HashSetCache<V> {
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashSetCmd::<V>::Clear => {
+                                    hs.clear();
+                                }
+                                HashSetCmd::<V>::Remove { val, resp_tx } => {
+                                    let is_exist = hs.iter().any(|val_ex| val_ex.val == val);
+                                    if is_exist {
+                                        hs.retain(|val_ex| val_ex.val == val);
+                                    }
+                                    
+                                    if let Err(_) = resp_tx.send(is_exist) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashSetCmd::<V>::Insert { val, duration } => {
                                     let expiration = duration.and_then(|d| Some(Instant::now() + d));
                                     let val_ex = ValueEx { val, expiration };
