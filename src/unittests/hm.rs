@@ -42,7 +42,7 @@ mod tests {
     async fn test_mget() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(&["a", "b", "c"], &[10, 20, 30], None, Some(true))
+            .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[Some(true), Some(true), Some(true)])
             .await
             .expect("failed to insert keys into hm");
         let vals = hm_cache.mget(&["a", "b", "c", "d"]).await.unwrap();
@@ -53,7 +53,7 @@ mod tests {
     async fn test_remove() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(&["a", "b", "c"], &[10, 20, 30], None, None)
+            .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
             .expect("failed to insert keys into hm");
         let vals = hm_cache.remove(&["a", "b", "c", "d"]).await.unwrap();
@@ -64,7 +64,7 @@ mod tests {
     async fn test_contains_keys() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(&["a", "b", "c"], &[10, 20, 30], None, None)
+            .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
             .expect("failed to insert keys into hm");
         let is_contains_keys = hm_cache.contains_key(&["a", "b", "c", "d"]).await.unwrap();
@@ -79,7 +79,7 @@ mod tests {
             .await
             .expect("failed to insert key into hm");
         hm_cache
-            .minsert(&["a", "b", "c"], &[20, 20, 30], None, None)
+            .minsert(&["a", "b", "c"], &[20, 20, 30], &[None, None, None], &[None, None, None])
             .await
             .expect("failed to insert keys into hm");
         let val = hm_cache.get("a").await.expect("failed to get key from hm");
@@ -94,7 +94,7 @@ mod tests {
             .await
             .expect("failed to insert key into hm");
         hm_cache
-            .minsert(&["a", "b", "c"], &[20, 20, 30], None, Some(true))
+            .minsert(&["a", "b", "c"], &[20, 20, 30], &[None, None, None], &[Some(true), Some(true), Some(true)])
             .await
             .expect("failed to insert keys into hm");
         let val = hm_cache.get("a").await.expect("failed to get key from hm");
@@ -108,8 +108,8 @@ mod tests {
             .minsert(
                 &["a", "b", "c"],
                 &[10, 20, 30],
-                Some(Duration::from_secs(1)),
-                None,
+                &[Some(Duration::from_secs(1)), Some(Duration::from_secs(1)), Some(Duration::from_secs(1))],
+                &[None, None, None],
             )
             .await
             .expect("failed to insert keys into hm");
@@ -126,7 +126,7 @@ mod tests {
     async fn test_minsert() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(&["a", "b", "c"], &[10, 20, 30], None, None)
+            .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
             .expect("failed to insert keys into hm");
         let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
@@ -141,7 +141,7 @@ mod tests {
     async fn test_minsert_inconsistent_len() {
         let hm_cache = HashMapCache::new(32).await;
         let res = hm_cache
-            .minsert(&["a", "b"], &[10, 20, 30], None, None)
+            .minsert(&["a", "b"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await;
         assert!(res.is_err());
     }

@@ -35,8 +35,8 @@ pub enum HashMapCmd<K, V> {
     MInsert {
         keys: Vec<K>,
         vals: Vec<V>,
-        ex: Option<Duration>,
-        nx: Option<bool>,
+        ex: Vec<Option<Duration>>,
+        nx: Vec<Option<bool>>,
     },
     Get {
         key: K,
@@ -130,14 +130,17 @@ where
         &self,
         keys: &[K],
         vals: &[V],
-        ex: Option<Duration>,
-        nx: Option<bool>,
+        ex: &[Option<Duration>],
+        nx: &[Option<bool>],
     ) -> Result<(), TokioActorCacheError> {
-        if keys.len() != vals.len() {
+        if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
         }
+        
         let keys = keys.to_vec();
         let vals = vals.to_vec();
+        let ex = ex.to_vec();
+        let nx = nx.to_vec();
         let minsert_cmd = HashMapCmd::MInsert { keys, vals, ex, nx };
         self.tx
             .try_send(minsert_cmd)
@@ -240,8 +243,8 @@ where
                                     }
                                 }
                                 HashMapCmd::<K, V>::MInsert { keys, vals, ex, nx } => {
-                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    for (key, val) in keys.into_iter().zip(vals) {
+                                    for (((key, val), ex), nx) in keys.into_iter().zip(vals).zip(ex).zip(nx) {
+                                        let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                         let val_ex = ValueEx { val, expiration };
                                         if nx.is_some() && nx == Some(true) {
                                             hm.entry(key).or_insert(val_ex);
