@@ -55,6 +55,76 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_minsert_nx_if_not_exists() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .insert("a", 10, None, None)
+            .await
+            .expect("failed to insert key into hm");
+        hm_cache
+            .minsert(vec!["a", "b", "c"], vec![20, 20, 30], None, None)
+            .await
+            .expect("failed to insert keys into hm");
+        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+        assert_eq!(val, Some(20));
+    }
+
+    #[tokio::test]
+    async fn test_minsert_nx_if_exists() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .insert("a", 10, None, None)
+            .await
+            .expect("failed to insert key into hm");
+        hm_cache
+            .minsert(vec!["a", "b", "c"], vec![20, 20, 30], None, Some(true))
+            .await
+            .expect("failed to insert keys into hm");
+        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+        assert_eq!(val, Some(10));
+    }
+
+    #[tokio::test]
+    async fn test_minsert_ex() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .minsert(vec!["a", "b", "c"], vec![10, 20, 30], Some(Duration::from_secs(1)), None)
+            .await
+            .expect("failed to insert keys into hm");
+        tokio::time::sleep(Duration::from_secs(2)).await;
+        let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
+        let val_b = hm_cache.get("b").await.expect("failed to get key from hm");
+        let val_c = hm_cache.get("c").await.expect("failed to get key from hm");
+        assert_eq!(val_a, None);
+        assert_eq!(val_b, None);
+        assert_eq!(val_c, None);
+    }
+
+    #[tokio::test]
+    async fn test_minsert() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .minsert(vec!["a", "b", "c"], vec![10, 20, 30], None, None)
+            .await
+            .expect("failed to insert keys into hm");
+        let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
+        let val_b = hm_cache.get("b").await.expect("failed to get key from hm");
+        let val_c = hm_cache.get("c").await.expect("failed to get key from hm");
+        assert_eq!(val_a, Some(10));
+        assert_eq!(val_b, Some(20));
+        assert_eq!(val_c, Some(30));
+    }
+
+    #[tokio::test]
+    async fn test_minsert_inconsistent_len() {
+        let hm_cache = HashMapCache::new(32).await;
+        let res = hm_cache
+            .minsert(vec!["a", "b"], vec![10, 20, 30], None, None)
+            .await;
+        assert!(res.is_err());
+    }
+
+    #[tokio::test]
     async fn test_insert_nx_if_not_exists() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
