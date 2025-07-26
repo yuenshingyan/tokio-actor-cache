@@ -13,8 +13,8 @@ use tokio::time::{Instant, interval};
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
     TTL {
-        key: K,
-        resp_tx: oneshot::Sender<Option<Duration>>,
+        keys: Vec<K>,
+        resp_tx: oneshot::Sender<Vec<Option<Duration>>>,
     },
     GetAll {
         resp_tx: oneshot::Sender<HashMap<K, V>>,
@@ -60,9 +60,10 @@ where
     K: Clone,
     V: Clone,
 {
-    pub async fn ttl(&self, key: K) -> Result<Option<Duration>, TokioActorCacheError> {
+    pub async fn ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
-        let ttl_cmd = HashMapCmd::TTL { key, resp_tx };
+        let keys = keys.to_vec();
+        let ttl_cmd = HashMapCmd::TTL { keys, resp_tx };
         self.tx
             .try_send(ttl_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
@@ -193,12 +194,14 @@ where
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
-                                HashMapCmd::<K, V>::TTL { key, resp_tx } => {
-                                    let ttl = hm.get(&key).and_then(|val_ex| {
-                                        val_ex.expiration.and_then(|ex| {
-                                                ex.checked_duration_since(Instant::now())
+                                HashMapCmd::<K, V>::TTL { keys, resp_tx } => {
+                                    let ttl = keys.iter().map(|key| {
+                                        hm.get(&key).and_then(|val_ex| {
+                                            val_ex.expiration.and_then(|ex| {
+                                                    ex.checked_duration_since(Instant::now())
+                                            })
                                         })
-                                    });
+                                    }).collect::<Vec<Option<Duration>>>();
                                     if let Err(_) = resp_tx.send(ttl) {
                                         println!("the receiver dropped");
                                     }
@@ -238,14 +241,11 @@ where
                                 }
                                 HashMapCmd::<K, V>::MInsert { keys, vals, ex, nx } => {
                                     let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    if nx.is_some() && nx == Some(true) {
-                                        for (key, val) in keys.into_iter().zip(vals) {
-                                            let val_ex = ValueEx { val, expiration };
+                                    for (key, val) in keys.into_iter().zip(vals) {
+                                        let val_ex = ValueEx { val, expiration };
+                                        if nx.is_some() && nx == Some(true) {
                                             hm.entry(key).or_insert(val_ex);
-                                        }
-                                    } else {
-                                        for (key, val) in keys.into_iter().zip(vals) {
-                                            let val_ex = ValueEx { val, expiration };
+                                        } else {
                                             hm.insert(key, val_ex);
                                         }
                                     }
