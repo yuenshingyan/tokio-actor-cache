@@ -45,8 +45,8 @@ pub struct VecCache<V> {
 }
 
 impl<V> VecCache<V>
-where 
-    V: Clone
+where
+    V: Clone,
 {
     pub async fn ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();

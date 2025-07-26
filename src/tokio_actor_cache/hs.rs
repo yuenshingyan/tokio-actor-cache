@@ -46,7 +46,7 @@ pub struct HashSetCache<V> {
 }
 
 impl<V> HashSetCache<V>
-where 
+where
     V: Clone,
 {
     pub async fn ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {

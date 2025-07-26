@@ -49,7 +49,10 @@ mod tests {
     #[tokio::test]
     async fn test_minsert_ex() {
         let hs_cache = HashSetCache::new(32).await;
-        hs_cache.minsert(&[10, 20, 30], Some(Duration::from_secs(1)), None).await.unwrap();
+        hs_cache
+            .minsert(&[10, 20, 30], Some(Duration::from_secs(1)), None)
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
         let vals = hs_cache.get_all().await.unwrap();
         assert_eq!(vals, HashSet::<i32>::new());

@@ -105,7 +105,12 @@ mod tests {
     async fn test_minsert_ex() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(&["a", "b", "c"], &[10, 20, 30], Some(Duration::from_secs(1)), None)
+            .minsert(
+                &["a", "b", "c"],
+                &[10, 20, 30],
+                Some(Duration::from_secs(1)),
+                None,
+            )
             .await
             .expect("failed to insert keys into hm");
         tokio::time::sleep(Duration::from_secs(2)).await;

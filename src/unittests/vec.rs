@@ -50,7 +50,10 @@ mod tests {
     #[tokio::test]
     async fn test_mpush_ex() {
         let vec_cache = VecCache::new(32).await;
-        vec_cache.mpush(&[10, 20, 30], Some(Duration::from_secs(1)), None).await.unwrap();
+        vec_cache
+            .mpush(&[10, 20, 30], Some(Duration::from_secs(1)), None)
+            .await
+            .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
         let val = vec_cache.get_all().await.unwrap();
         assert_eq!(val, Vec::new());

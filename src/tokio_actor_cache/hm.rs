@@ -56,7 +56,7 @@ pub struct HashMapCache<K, V> {
 }
 
 impl<K, V> HashMapCache<K, V>
-where 
+where
     K: Clone,
     V: Clone,
 {
@@ -134,7 +134,7 @@ where
         nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         if keys.len() != vals.len() {
-            return Err(TokioActorCacheError::InconsistentLen)
+            return Err(TokioActorCacheError::InconsistentLen);
         }
         let keys = keys.to_vec();
         let vals = vals.to_vec();
