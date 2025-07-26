@@ -1,3 +1,7 @@
+use std::time::Duration;
+
+use crate::tokio_actor_cache::{hm::HashMapCache, hs::HashSetCache, vec::VecCache};
+
 pub mod tokio_actor_cache {
     mod data_struct;
     pub mod error;
@@ -13,6 +17,22 @@ pub mod unittests {
 
 #[tokio::main]
 async fn main() {
+    let hs_cache = HashSetCache::new(32).await;
+    hs_cache
+        .insert(10, Some(Duration::from_secs(5)), None)
+        .await
+        .unwrap();
+    let ttl = hs_cache.ttl(&[10]).await.unwrap();
+    println!("{:?}", ttl);
+
+    let vec_cache = VecCache::new(32).await;
+    vec_cache
+        .push(10, Some(Duration::from_secs(5)), None)
+        .await
+        .unwrap();
+    let val = vec_cache.ttl(&[10]).await.unwrap();
+    println!("{:?}", val);
+
     // TODO: Add MSET, MGET, TTL ...
 
     // High-Value Functionality
