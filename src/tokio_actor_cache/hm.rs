@@ -28,6 +28,16 @@ pub enum HashMapCmd<K, V> {
         key: K,
         resp_tx: oneshot::Sender<bool>,
     },
+    // MGet {
+    //     key: K,
+    //     resp_tx: oneshot::Sender<Option<V>>,
+    // },
+    MInsert {
+        keys: Vec<K>,
+        vals: Vec<V>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
+    },
     Get {
         key: K,
         resp_tx: oneshot::Sender<Option<V>>,
@@ -95,6 +105,23 @@ impl<K, V> HashMapCache<K, V> {
         resp_rx
             .await
             .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
+    pub async fn minsert(
+        &self,
+        keys: Vec<K>,
+        vals: Vec<V>,
+        ex: Option<Duration>,
+        nx: Option<bool>,
+    ) -> Result<(), TokioActorCacheError> {
+        if keys.len() != vals.len() {
+            return Err(TokioActorCacheError::InconsistentLen)
+        }
+
+        let minsert_cmd = HashMapCmd::MInsert { keys, vals, ex, nx };
+        self.tx
+            .try_send(minsert_cmd)
+            .map_err(|_| TokioActorCacheError::Send)
     }
 
     pub async fn get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
@@ -178,6 +205,26 @@ impl<K, V> HashMapCache<K, V> {
                                         println!("the receiver dropped");
                                     }
                                 }
+                                HashMapCmd::<K, V>::MInsert { keys, vals, ex, nx } => {
+                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
+                                    if nx.is_some() && nx == Some(true) {
+                                        for (key, val) in keys.into_iter().zip(vals) {
+                                            let val_ex = ValueEx { val, expiration };
+                                            hm.entry(key).or_insert(val_ex);
+                                        }
+                                    } else {
+                                        for (key, val) in keys.into_iter().zip(vals) {
+                                            let val_ex = ValueEx { val, expiration };
+                                            hm.insert(key, val_ex);
+                                        }
+                                    }
+                                }
+                                HashMapCmd::<K, V>::Get { key, resp_tx } => {
+                                    let val = hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()));
+                                    if let Err(_) = resp_tx.send(val) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashMapCmd::<K, V>::Insert { key, val, ex, nx } => {
                                     let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                     let val_ex = ValueEx { val, expiration };
@@ -185,12 +232,6 @@ impl<K, V> HashMapCache<K, V> {
                                         hm.entry(key).or_insert(val_ex);
                                     } else {
                                         hm.insert(key, val_ex);
-                                    }
-                                }
-                                HashMapCmd::<K, V>::Get { key, resp_tx } => {
-                                    let val = hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()));
-                                    if let Err(_) = resp_tx.send(val) {
-                                        println!("the receiver dropped");
                                     }
                                 }
                             }
