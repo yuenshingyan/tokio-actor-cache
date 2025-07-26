@@ -11,8 +11,9 @@ mod tests {
             .insert("a", 10, Some(Duration::from_secs(1)), None)
             .await
             .unwrap();
-        let ttl = hm_cache.ttl("a").await.unwrap();
-        assert!(Some(Duration::from_secs(1)) > ttl)
+        let ttl = hm_cache.ttl(&["a", "b"]).await.unwrap();
+        assert!(Some(Duration::from_secs(1)) > ttl[0]);
+        assert_eq!(ttl[1], None);
     }
 
     #[tokio::test]
