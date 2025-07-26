@@ -41,10 +41,10 @@ mod tests {
     async fn test_mget() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(vec!["a", "b", "c"], vec![10, 20, 30], None, Some(true))
+            .minsert(&["a", "b", "c"], &[10, 20, 30], None, Some(true))
             .await
             .expect("failed to insert keys into hm");
-        let vals = hm_cache.mget(vec!["a", "b", "c", "d"]).await.unwrap();
+        let vals = hm_cache.mget(&["a", "b", "c", "d"]).await.unwrap();
         assert_eq!(vals, vec![Some(10), Some(20), Some(30), None]);
     }
 
@@ -52,17 +52,22 @@ mod tests {
     async fn test_remove() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .insert("a", 10, None, None)
+            .minsert(&["a", "b", "c"], &[10, 20, 30], None, None)
             .await
-            .expect("failed to insert key into hm");
-        let val = hm_cache
-            .remove("a")
-            .await
-            .expect("failed to remove key from hm");
-        assert_eq!(val, Some(10));
+            .expect("failed to insert keys into hm");
+        let vals = hm_cache.remove(&["a", "b", "c", "d"]).await.unwrap();
+        assert_eq!(vals, vec![Some(10), Some(20), Some(30), None]);
+    }
 
-        let val = hm_cache.get("a").await.unwrap();
-        assert_eq!(val, None);
+    #[tokio::test]
+    async fn test_contains_keys() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .minsert(&["a", "b", "c"], &[10, 20, 30], None, None)
+            .await
+            .expect("failed to insert keys into hm");
+        let is_contains_keys = hm_cache.contains_key(&["a", "b", "c", "d"]).await.unwrap();
+        assert_eq!(is_contains_keys, vec![true, true, true, false]);
     }
 
     #[tokio::test]
@@ -73,7 +78,7 @@ mod tests {
             .await
             .expect("failed to insert key into hm");
         hm_cache
-            .minsert(vec!["a", "b", "c"], vec![20, 20, 30], None, None)
+            .minsert(&["a", "b", "c"], &[20, 20, 30], None, None)
             .await
             .expect("failed to insert keys into hm");
         let val = hm_cache.get("a").await.expect("failed to get key from hm");
@@ -88,7 +93,7 @@ mod tests {
             .await
             .expect("failed to insert key into hm");
         hm_cache
-            .minsert(vec!["a", "b", "c"], vec![20, 20, 30], None, Some(true))
+            .minsert(&["a", "b", "c"], &[20, 20, 30], None, Some(true))
             .await
             .expect("failed to insert keys into hm");
         let val = hm_cache.get("a").await.expect("failed to get key from hm");
@@ -99,7 +104,7 @@ mod tests {
     async fn test_minsert_ex() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(vec!["a", "b", "c"], vec![10, 20, 30], Some(Duration::from_secs(1)), None)
+            .minsert(&["a", "b", "c"], &[10, 20, 30], Some(Duration::from_secs(1)), None)
             .await
             .expect("failed to insert keys into hm");
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -115,7 +120,7 @@ mod tests {
     async fn test_minsert() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
-            .minsert(vec!["a", "b", "c"], vec![10, 20, 30], None, None)
+            .minsert(&["a", "b", "c"], &[10, 20, 30], None, None)
             .await
             .expect("failed to insert keys into hm");
         let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
@@ -130,7 +135,7 @@ mod tests {
     async fn test_minsert_inconsistent_len() {
         let hm_cache = HashMapCache::new(32).await;
         let res = hm_cache
-            .minsert(vec!["a", "b"], vec![10, 20, 30], None, None)
+            .minsert(&["a", "b"], &[10, 20, 30], None, None)
             .await;
         assert!(res.is_err());
     }
