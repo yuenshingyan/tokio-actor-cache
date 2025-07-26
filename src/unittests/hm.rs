@@ -38,6 +38,17 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_mget() {
+        let hm_cache = HashMapCache::new(32).await;
+        hm_cache
+            .minsert(vec!["a", "b", "c"], vec![10, 20, 30], None, Some(true))
+            .await
+            .expect("failed to insert keys into hm");
+        let vals = hm_cache.mget(vec!["a", "b", "c", "d"]).await.unwrap();
+        assert_eq!(vals, vec![Some(10), Some(20), Some(30), None]);
+    }
+
+    #[tokio::test]
     async fn test_remove() {
         let hm_cache = HashMapCache::new(32).await;
         hm_cache
