@@ -29,8 +29,8 @@ pub enum VecCmd<V> {
     },
     MPush {
         vals: Vec<V>,
-        ex: Option<Duration>,
-        nx: Option<bool>,
+        ex: Vec<Option<Duration>>,
+        nx: Vec<Option<bool>>,
     },
     Push {
         val: V,
@@ -101,10 +101,16 @@ where
     pub async fn mpush(
         &self,
         vals: &[V],
-        ex: Option<Duration>,
-        nx: Option<bool>,
+        ex: &[Option<Duration>],
+        nx: &[Option<bool>],
     ) -> Result<(), TokioActorCacheError> {
+        if vals.len() != ex.len() || ex.len() != nx.len() {
+            return Err(TokioActorCacheError::InconsistentLen)
+        }
+        
         let vals = vals.to_vec();
+        let ex = ex.to_vec();
+        let nx = nx.to_vec();
         self.tx
             .try_send(VecCmd::MPush { vals, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
@@ -194,8 +200,8 @@ where
                                     }
                                 }
                                 VecCmd::<V>::MPush { vals, ex, nx } => {
-                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    for val in vals {
+                                    for ((val, ex), nx) in vals.into_iter().zip(ex).zip(nx) {
+                                        let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                         let val_ex = ValueEx { val, expiration };
                                         if nx.is_some() && nx == Some(true) && !vec.contains(&val_ex) {
                                             vec.push(val_ex);
