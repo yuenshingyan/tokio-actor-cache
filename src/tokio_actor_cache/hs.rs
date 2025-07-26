@@ -30,8 +30,8 @@ pub enum HashSetCmd<V> {
     },
     MInsert {
         vals: Vec<V>,
-        ex: Option<Duration>,
-        nx: Option<bool>,
+        ex: Vec<Option<Duration>>,
+        nx: Vec<Option<bool>>,
     },
     Insert {
         val: V,
@@ -104,10 +104,16 @@ where
     pub async fn minsert(
         &self,
         vals: &[V],
-        ex: Option<Duration>,
-        nx: Option<bool>,
+        ex: &[Option<Duration>],
+        nx: &[Option<bool>],
     ) -> Result<(), TokioActorCacheError> {
+        if vals.len() != ex.len() || ex.len() != nx.len() {
+            return Err(TokioActorCacheError::InconsistentLen)
+        }
+
         let vals = vals.to_vec();
+        let ex = ex.to_vec();
+        let nx = nx.to_vec();
         self.tx
             .try_send(HashSetCmd::MInsert { vals, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
@@ -198,8 +204,8 @@ where
                                     }
                                 }
                                 HashSetCmd::<V>::MInsert { vals, ex, nx } => {
-                                    let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    for val in vals {
+                                    for ((val, ex), nx) in vals.into_iter().zip(ex).zip(nx) {
+                                        let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                         let val_ex = ValueEx { val, expiration };
                                         if nx.is_some() && nx == Some(true) && !hs.contains(&val_ex) {
                                             hs.insert(val_ex);
