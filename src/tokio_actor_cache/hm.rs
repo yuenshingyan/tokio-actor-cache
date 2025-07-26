@@ -28,10 +28,10 @@ pub enum HashMapCmd<K, V> {
         key: K,
         resp_tx: oneshot::Sender<bool>,
     },
-    // MGet {
-    //     key: K,
-    //     resp_tx: oneshot::Sender<Option<V>>,
-    // },
+    MGet {
+        keys: Vec<K>,
+        resp_tx: oneshot::Sender<Vec<Option<V>>>,
+    },
     MInsert {
         keys: Vec<K>,
         vals: Vec<V>,
@@ -101,6 +101,17 @@ impl<K, V> HashMapCache<K, V> {
         let contains_key_cmd = HashMapCmd::ContainsKey { key, resp_tx };
         self.tx
             .try_send(contains_key_cmd)
+            .map_err(|_| TokioActorCacheError::Send)?;
+        resp_rx
+            .await
+            .map_err(|_| return TokioActorCacheError::Receive)
+    }
+
+    pub async fn mget(&self, keys: Vec<K>) -> Result<Vec<Option<V>>, TokioActorCacheError> {
+        let (resp_tx, resp_rx) = oneshot::channel();
+        let mget_cmd = HashMapCmd::MGet { keys, resp_tx };
+        self.tx
+            .try_send(mget_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -202,6 +213,14 @@ impl<K, V> HashMapCache<K, V> {
                                 HashMapCmd::<K, V>::ContainsKey {key, resp_tx } => {
                                     let is_contains_key = hm.contains_key(&key);
                                     if let Err(_) = resp_tx.send(is_contains_key) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                                HashMapCmd::<K, V>::MGet { keys, resp_tx } => {
+                                    let vals = keys.iter().map(|key| {
+                                        hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()))
+                                    }).collect::<Vec<Option<V>>>();
+                                    if let Err(_) = resp_tx.send(vals) {
                                         println!("the receiver dropped");
                                     }
                                 }
