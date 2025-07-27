@@ -22,18 +22,6 @@ async fn main() {
         .insert(10, Some(Duration::from_secs(5)), None)
         .await
         .unwrap();
-    let ttl = hs_cache.ttl(&[10]).await.unwrap();
-    println!("{:?}", ttl);
-
-    let vec_cache = VecCache::new(32).await;
-    vec_cache
-        .push(10, Some(Duration::from_secs(5)), None)
-        .await
-        .unwrap();
-    let val = vec_cache.ttl(&[10]).await.unwrap();
-    println!("{:?}", val);
-
-    // TODO: Add MSET, MGET, TTL ...
 
     // High-Value Functionality
     // 1. Cache Expiration Policies
