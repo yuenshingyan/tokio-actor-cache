@@ -1,13 +1,10 @@
-use std::time::Duration;
-
-use crate::tokio_actor_cache::{hm::HashMapCache, hs::HashSetCache, vec::VecCache};
-
 pub mod tokio_actor_cache {
     mod data_struct;
     pub mod error;
     pub mod hm;
     pub mod hs;
     pub mod vec;
+    mod compute;
 }
 pub mod unittests {
     pub mod hm;
@@ -15,13 +12,43 @@ pub mod unittests {
     pub mod vec;
 }
 
+use std::time::Duration;
+
+use crate::tokio_actor_cache::hm::HashMapCacheCluster;
+
 #[tokio::main]
 async fn main() {
-    let hs_cache = HashSetCache::new(32).await;
-    hs_cache
-        .insert(10, Some(Duration::from_secs(5)), None)
-        .await
-        .unwrap();
+    let hm_cluster = HashMapCacheCluster::<&str, i32>::new(32, 3).await;
+
+    // let key = "a";
+    // let val = 10;
+    // let ex = None;
+    // let nx = None;
+
+    // hm_cluster.insert(key, val, ex, nx).await.unwrap();
+    // let val = hm_cluster.get(key).await.unwrap();
+    // println!("{:?}", val);
+
+    hm_cluster.minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None]).await.unwrap();
+    // let vals = hm_cluster.mget(&["a", "b", "c"]).await.unwrap();
+    // println!("{:?}", vals);
+
+    // let keys = hm_cluster.contains_key(&["a", "b", "c"]).await.unwrap();
+    // println!("{:?}", keys);
+
+    // let vals = hm_cluster.remove(&["a", "b", "c"]).await.unwrap();
+    // println!("{:?}", vals);
+
+    // hm_cluster.clear().await.unwrap();
+    // let vals = hm_cluster.mget(&["a", "b", "c"]).await.unwrap();
+    // println!("{:?}", vals);
+
+    // let vals = hm_cluster.get_all().await.unwrap();
+    // println!("{:?}", vals);
+
+    hm_cluster.minsert(&["a", "b", "c"], &[10, 20, 30], &[Some(Duration::from_secs(1)), Some(Duration::from_secs(1)), Some(Duration::from_secs(1))], &[None, None, None]).await.unwrap();
+    let ttl = hm_cluster.ttl(&["a", "b", "c"]).await.unwrap();
+    println!("{:?}", ttl);
 
     // High-Value Functionality
     // 1. Cache Expiration Policies
