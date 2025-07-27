@@ -22,15 +22,15 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .insert("b", 12, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .insert("c", 20, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         let hm = hm_cache.get_all().await.unwrap();
         assert_eq!(!hm.is_empty(), true);
         hm_cache.clear().await.unwrap();
@@ -44,7 +44,7 @@ mod tests {
         hm_cache
             .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[Some(true), Some(true), Some(true)])
             .await
-            .expect("failed to insert keys into hm");
+            .unwrap();
         let vals = hm_cache.mget(&["a", "b", "c", "d"]).await.unwrap();
         assert_eq!(vals, vec![Some(10), Some(20), Some(30), None]);
     }
@@ -55,7 +55,7 @@ mod tests {
         hm_cache
             .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
-            .expect("failed to insert keys into hm");
+            .unwrap();
         let vals = hm_cache.remove(&["a", "b", "c", "d"]).await.unwrap();
         assert_eq!(vals, vec![Some(10), Some(20), Some(30), None]);
     }
@@ -66,7 +66,7 @@ mod tests {
         hm_cache
             .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
-            .expect("failed to insert keys into hm");
+            .unwrap();
         let is_contains_keys = hm_cache.contains_key(&["a", "b", "c", "d"]).await.unwrap();
         assert_eq!(is_contains_keys, vec![true, true, true, false]);
     }
@@ -77,12 +77,12 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .minsert(&["a", "b", "c"], &[20, 20, 30], &[None, None, None], &[None, None, None])
             .await
-            .expect("failed to insert keys into hm");
-        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+            .unwrap();
+        let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(20));
     }
 
@@ -92,12 +92,12 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .minsert(&["a", "b", "c"], &[20, 20, 30], &[None, None, None], &[Some(true), Some(true), Some(true)])
             .await
-            .expect("failed to insert keys into hm");
-        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+            .unwrap();
+        let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }
 
@@ -112,11 +112,11 @@ mod tests {
                 &[None, None, None],
             )
             .await
-            .expect("failed to insert keys into hm");
+            .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
-        let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
-        let val_b = hm_cache.get("b").await.expect("failed to get key from hm");
-        let val_c = hm_cache.get("c").await.expect("failed to get key from hm");
+        let val_a = hm_cache.get("a").await.unwrap();
+        let val_b = hm_cache.get("b").await.unwrap();
+        let val_c = hm_cache.get("c").await.unwrap();
         assert_eq!(val_a, None);
         assert_eq!(val_b, None);
         assert_eq!(val_c, None);
@@ -128,10 +128,10 @@ mod tests {
         hm_cache
             .minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
-            .expect("failed to insert keys into hm");
-        let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
-        let val_b = hm_cache.get("b").await.expect("failed to get key from hm");
-        let val_c = hm_cache.get("c").await.expect("failed to get key from hm");
+            .unwrap();
+        let val_a = hm_cache.get("a").await.unwrap();
+        let val_b = hm_cache.get("b").await.unwrap();
+        let val_c = hm_cache.get("c").await.unwrap();
         assert_eq!(val_a, Some(10));
         assert_eq!(val_b, Some(20));
         assert_eq!(val_c, Some(30));
@@ -152,12 +152,12 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .insert("a", 20, None, None)
             .await
-            .expect("failed to insert key into hm");
-        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+            .unwrap();
+        let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(20));
     }
 
@@ -167,12 +167,12 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .insert("a", 20, None, Some(true))
             .await
-            .expect("failed to insert key into hm");
-        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+            .unwrap();
+        let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }
 
@@ -182,14 +182,14 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         hm_cache
             .insert("b", 20, Some(Duration::from_secs(1)), None)
             .await
-            .expect("failed to insert key into hm");
+            .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
-        let val_a = hm_cache.get("a").await.expect("failed to get key from hm");
-        let val_b = hm_cache.get("b").await.expect("failed to get key from hm");
+        let val_a = hm_cache.get("a").await.unwrap();
+        let val_b = hm_cache.get("b").await.unwrap();
         assert_eq!(val_a, Some(10));
         assert_eq!(val_b, None);
     }
@@ -200,8 +200,8 @@ mod tests {
         hm_cache
             .insert("a", 10, None, None)
             .await
-            .expect("failed to insert key into hm");
-        let val = hm_cache.get("a").await.expect("failed to get key from hm");
+            .unwrap();
+        let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }
 }
