@@ -105,9 +105,9 @@ where
         nx: &[Option<bool>],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen)
+            return Err(TokioActorCacheError::InconsistentLen);
         }
-        
+
         let vals = vals.to_vec();
         let ex = ex.to_vec();
         let nx = nx.to_vec();

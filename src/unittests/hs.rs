@@ -33,7 +33,10 @@ mod tests {
     #[tokio::test]
     async fn test_remove() {
         let hs_cache = HashSetCache::new(32).await;
-        hs_cache.minsert(&[10, 20, 30], &[None, None, None], &[None, None, None]).await.unwrap();
+        hs_cache
+            .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
+            .await
+            .unwrap();
         let vals = hs_cache.remove(&[10, 20, 30, 40]).await.unwrap();
         assert_eq!(vals, vec![true, true, true, false]);
     }
@@ -51,8 +54,12 @@ mod tests {
         let hs_cache = HashSetCache::new(32).await;
         hs_cache
             .minsert(
-                &[10, 20, 30], 
-                &[Some(Duration::from_secs(1)), Some(Duration::from_secs(1)), Some(Duration::from_secs(1))], 
+                &[10, 20, 30],
+                &[
+                    Some(Duration::from_secs(1)),
+                    Some(Duration::from_secs(1)),
+                    Some(Duration::from_secs(1)),
+                ],
                 &[None, None, None],
             )
             .await
@@ -65,7 +72,10 @@ mod tests {
     #[tokio::test]
     async fn test_minsert() {
         let hs_cache = HashSetCache::new(32).await;
-        hs_cache.minsert(&[10, 20, 30], &[None, None, None], &[None, None, None]).await.unwrap();
+        hs_cache
+            .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
+            .await
+            .unwrap();
         let val = hs_cache.get_all().await.unwrap();
         assert_eq!(val, HashSet::from([10, 20, 30]));
     }

@@ -136,7 +136,7 @@ where
         if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
         }
-        
+
         let keys = keys.to_vec();
         let vals = vals.to_vec();
         let ex = ex.to_vec();
