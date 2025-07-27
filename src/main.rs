@@ -4,20 +4,27 @@ pub mod tokio_actor_cache {
     pub mod hm;
     pub mod hs;
     pub mod vec;
-    mod compute;
+    pub mod compute;
 }
 pub mod unittests {
     pub mod hm;
     pub mod hs;
     pub mod vec;
+    pub mod hm_cluster;
+    pub mod hs_cluster;
+    pub mod vec_cluster;
 }
 
 use std::time::Duration;
 
-use crate::tokio_actor_cache::hm::HashMapCacheCluster;
+use crate::tokio_actor_cache::{compute::hash_id, hm::HashMapCacheCluster};
 
 #[tokio::main]
 async fn main() {
+    for i in ["a", "b", "c", "d", "e", "f", "g"] {
+        println!("{}", hash_id(i, 3));
+    }
+
     let hm_cluster = HashMapCacheCluster::<&str, i32>::new(32, 3).await;
 
     // let key = "a";
