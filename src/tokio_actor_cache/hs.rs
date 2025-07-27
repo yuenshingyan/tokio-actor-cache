@@ -187,10 +187,11 @@ where
     }
 
     pub async fn new(buffer: usize, n_node: u64) -> Self {
-        let hs_cache = HashSetCache::<V>::new(buffer).await;
-        let nodes = (0..n_node).map(|i| {
-            (i, hs_cache.clone())
-        }).collect::<HashMap<u64, HashSetCache<V>>>();
+        let mut nodes = HashMap::new();
+        for i in 0..n_node {
+            let vec_cache = HashSetCache::<V>::new(buffer).await;
+            nodes.insert(i, vec_cache);
+        }
         Self {
             nodes
         }

@@ -241,10 +241,11 @@ where
     }
 
     pub async fn new(buffer: usize, n_node: u64) -> Self {
-        let hm_cache = HashMapCache::<K, V>::new(buffer).await;
-        let nodes = (0..n_node).map(|i| {
-            (i, hm_cache.clone())
-        }).collect::<HashMap<u64, HashMapCache<K, V>>>();
+        let mut nodes = HashMap::new();
+        for i in 0..n_node {
+            let vec_cache = HashMapCache::<K, V>::new(buffer).await;
+            nodes.insert(i, vec_cache);
+        }
         Self {
             nodes
         }
