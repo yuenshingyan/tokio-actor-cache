@@ -2,25 +2,22 @@
 mod tests {
     use std::{collections::HashSet, time::Duration};
 
-    use crate::tokio_actor_cache::hs::HashSetCacheCluster;
+    use crate::tokio_cache::bounded::hs::HashSetCacheCluster;
 
     #[tokio::test]
     async fn test_hash_id() {
         let hs_cluster = HashSetCacheCluster::new(32, 3).await;
         let keys = vec![
-            "a".to_string(), 
-            "b".to_string(), 
-            "c".to_string(), 
-            "d".to_string(), 
-            "e".to_string(), 
-            "f".to_string(), 
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+            "f".to_string(),
             "g".to_string(),
         ];
         for k in keys.clone() {
-            hs_cluster
-                .insert(k, None, None)
-                .await
-                .unwrap();
+            hs_cluster.insert(k, None, None).await.unwrap();
         }
 
         let vals = hs_cluster.get_all().await.unwrap();

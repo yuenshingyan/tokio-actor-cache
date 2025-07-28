@@ -3,25 +3,22 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::tokio_actor_cache::vec::VecCacheCluster;
+    use crate::tokio_cache::bounded::vec::VecCacheCluster;
 
     #[tokio::test]
     async fn test_hash_id() {
         let vec_cluster = VecCacheCluster::new(32, 3).await;
         let vals = vec![
-            "a".to_string(), 
-            "b".to_string(), 
-            "c".to_string(), 
-            "d".to_string(), 
-            "e".to_string(), 
-            "f".to_string(), 
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+            "f".to_string(),
             "g".to_string(),
         ];
         for v in vals.clone() {
-            vec_cluster
-                .push(v.clone(), None, None)
-                .await
-                .unwrap();
+            vec_cluster.push(v.clone(), None, None).await.unwrap();
         }
 
         let mut vec = vec_cluster.get_all().await.unwrap();

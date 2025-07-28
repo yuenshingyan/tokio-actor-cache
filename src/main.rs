@@ -1,30 +1,31 @@
-pub mod tokio_actor_cache {
+pub mod tokio_cache {
+    pub mod bounded {
+        pub mod hm;
+        pub mod hs;
+        pub mod vec;
+    }
+    // pub mod unbounded {
+
+    // }
+    mod compute;
     mod data_struct;
     pub mod error;
-    pub mod hm;
-    pub mod hs;
-    pub mod vec;
-    pub mod compute;
 }
 pub mod unittests {
     pub mod hm;
-    pub mod hs;
-    pub mod vec;
     pub mod hm_cluster;
+    pub mod hs;
     pub mod hs_cluster;
+    pub mod vec;
     pub mod vec_cluster;
 }
 
 use std::time::Duration;
 
-use crate::tokio_actor_cache::{compute::hash_id, hm::HashMapCacheCluster};
+use crate::tokio_cache::bounded::hm::HashMapCacheCluster;
 
 #[tokio::main]
 async fn main() {
-    for i in ["a", "b", "c", "d", "e", "f", "g"] {
-        println!("{}", hash_id(i, 3));
-    }
-
     let hm_cluster = HashMapCacheCluster::<&str, i32>::new(32, 3).await;
 
     // let key = "a";
@@ -36,7 +37,15 @@ async fn main() {
     // let val = hm_cluster.get(key).await.unwrap();
     // println!("{:?}", val);
 
-    hm_cluster.minsert(&["a", "b", "c"], &[10, 20, 30], &[None, None, None], &[None, None, None]).await.unwrap();
+    hm_cluster
+        .minsert(
+            &["a", "b", "c"],
+            &[10, 20, 30],
+            &[None, None, None],
+            &[None, None, None],
+        )
+        .await
+        .unwrap();
     // let vals = hm_cluster.mget(&["a", "b", "c"]).await.unwrap();
     // println!("{:?}", vals);
 
@@ -53,7 +62,19 @@ async fn main() {
     // let vals = hm_cluster.get_all().await.unwrap();
     // println!("{:?}", vals);
 
-    hm_cluster.minsert(&["a", "b", "c"], &[10, 20, 30], &[Some(Duration::from_secs(1)), Some(Duration::from_secs(1)), Some(Duration::from_secs(1))], &[None, None, None]).await.unwrap();
+    hm_cluster
+        .minsert(
+            &["a", "b", "c"],
+            &[10, 20, 30],
+            &[
+                Some(Duration::from_secs(1)),
+                Some(Duration::from_secs(1)),
+                Some(Duration::from_secs(1)),
+            ],
+            &[None, None, None],
+        )
+        .await
+        .unwrap();
     let ttl = hm_cluster.ttl(&["a", "b", "c"]).await.unwrap();
     println!("{:?}", ttl);
 

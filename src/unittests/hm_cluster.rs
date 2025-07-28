@@ -2,25 +2,22 @@
 mod tests {
     use std::time::Duration;
 
-    use crate::tokio_actor_cache::hm::HashMapCacheCluster;
+    use crate::tokio_cache::bounded::hm::HashMapCacheCluster;
 
     #[tokio::test]
     async fn test_hash_id() {
         let hm_cluster = HashMapCacheCluster::new(32, 3).await;
         let keys = vec![
-            "a".to_string(), 
-            "b".to_string(), 
-            "c".to_string(), 
-            "d".to_string(), 
-            "e".to_string(), 
-            "f".to_string(), 
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+            "f".to_string(),
             "g".to_string(),
         ];
         for (k, v) in keys.into_iter().enumerate() {
-            hm_cluster
-                .insert(k, v.clone(), None, None)
-                .await
-                .unwrap();
+            hm_cluster.insert(k, v.clone(), None, None).await.unwrap();
             let val = hm_cluster.get(k).await.unwrap();
             assert_eq!(val, Some(v));
         }
@@ -95,7 +92,10 @@ mod tests {
             )
             .await
             .unwrap();
-        let is_contains_keys = hm_cluster.contains_key(&["a", "b", "c", "d"]).await.unwrap();
+        let is_contains_keys = hm_cluster
+            .contains_key(&["a", "b", "c", "d"])
+            .await
+            .unwrap();
         assert_eq!(is_contains_keys, vec![true, true, true, false]);
     }
 

@@ -2,7 +2,7 @@
 mod tests {
     use std::time::Duration;
 
-    use crate::tokio_actor_cache::hm::HashMapCache;
+    use crate::tokio_cache::bounded::hm::HashMapCache;
 
     #[tokio::test]
     async fn test_ttl() {

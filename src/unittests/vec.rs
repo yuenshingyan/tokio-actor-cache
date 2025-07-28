@@ -3,7 +3,7 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::tokio_actor_cache::vec::VecCache;
+    use crate::tokio_cache::bounded::vec::VecCache;
 
     #[tokio::test]
     async fn test_ttl() {
