@@ -8,7 +8,7 @@ use crate::tokio_cache::compute::hash_id;
 use crate::tokio_cache::data_struct::ValueEx;
 use crate::tokio_cache::error::TokioActorCacheError;
 
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, interval};
 
@@ -62,7 +62,7 @@ where
                 resp_tx,
             };
             node.tx
-                .try_send(ttl_cmd)
+                .send(ttl_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -78,7 +78,7 @@ where
         for node in self.nodes.values() {
             let clear_cmd = HashSetCmd::Clear;
             node.tx
-                .try_send(clear_cmd)
+                .send(clear_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
         }
 
@@ -96,7 +96,7 @@ where
                 resp_tx,
             };
             node.tx
-                .try_send(remove_cmd)
+                .send(remove_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -115,7 +115,7 @@ where
             let node = self.get_node(val.clone())?;
             let (resp_tx, resp_rx) = oneshot::channel();
             node.tx
-                .try_send(HashSetCmd::Contains {
+                .send(HashSetCmd::Contains {
                     vals: vec![val],
                     resp_tx,
                 })
@@ -135,7 +135,7 @@ where
         for node in self.nodes.values() {
             let (resp_tx, resp_rx) = oneshot::channel();
             node.tx
-                .try_send(HashSetCmd::GetAll { resp_tx })
+                .send(HashSetCmd::GetAll { resp_tx })
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -163,7 +163,7 @@ where
         for val in vals {
             let node = self.get_node(val.clone())?;
             node.tx
-                .try_send(HashSetCmd::MInsert {
+                .send(HashSetCmd::MInsert {
                     vals: vec![val],
                     ex: ex.clone(),
                     nx: nx.clone(),
@@ -182,14 +182,14 @@ where
     ) -> Result<(), TokioActorCacheError> {
         let node = self.get_node(val.clone())?;
         node.tx
-            .try_send(HashSetCmd::Insert { val, ex, nx })
+            .send(HashSetCmd::Insert { val, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn new(buffer: usize, n_node: u64) -> Self {
+    pub async fn new(n_node: u64) -> Self {
         let mut nodes = HashMap::new();
         for i in 0..n_node {
-            let vec_cache = HashSetCache::<V>::new(buffer).await;
+            let vec_cache = HashSetCache::<V>::new().await;
             nodes.insert(i, vec_cache);
         }
         Self { nodes }
@@ -207,7 +207,7 @@ where
 
 #[derive(Debug, Clone)]
 pub struct HashSetCache<V> {
-    pub tx: Sender<HashSetCmd<V>>,
+    pub tx: UnboundedSender<HashSetCmd<V>>,
 }
 
 impl<V> HashSetCache<V>
@@ -219,7 +219,7 @@ where
         let vals = vals.to_vec();
         let ttl_cmd = HashSetCmd::TTL { vals, resp_tx };
         self.tx
-            .try_send(ttl_cmd)
+            .send(ttl_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -229,7 +229,7 @@ where
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashSetCmd::Clear;
         self.tx
-            .try_send(clear_cmd)
+            .send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -238,7 +238,7 @@ where
         let vals = vals.to_vec();
         let remove_cmd = HashSetCmd::Remove { vals, resp_tx };
         self.tx
-            .try_send(remove_cmd)
+            .send(remove_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -249,7 +249,7 @@ where
         let (resp_tx, resp_rx) = oneshot::channel();
         let vals = vals.to_vec();
         self.tx
-            .try_send(HashSetCmd::Contains { vals, resp_tx })
+            .send(HashSetCmd::Contains { vals, resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -259,7 +259,7 @@ where
     pub async fn get_all(&self) -> Result<HashSet<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .try_send(HashSetCmd::GetAll { resp_tx })
+            .send(HashSetCmd::GetAll { resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -280,7 +280,7 @@ where
         let ex = ex.to_vec();
         let nx = nx.to_vec();
         self.tx
-            .try_send(HashSetCmd::MInsert { vals, ex, nx })
+            .send(HashSetCmd::MInsert { vals, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -291,17 +291,17 @@ where
         nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
-            .try_send(HashSetCmd::Insert { val, ex, nx })
+            .send(HashSetCmd::Insert { val, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn new(buffer: usize) -> Self
+    pub async fn new() -> Self
     where
         V: Clone + Eq + Hash + Debug + Send + 'static,
     {
         let mut hs = HashSet::new();
 
-        let (tx, mut rx) = mpsc::channel(buffer);
+        let (tx, mut rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
             let mut ticker = interval(Duration::from_millis(100));

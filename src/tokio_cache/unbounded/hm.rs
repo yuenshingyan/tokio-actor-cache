@@ -7,7 +7,7 @@ use crate::tokio_cache::compute::hash_id;
 use crate::tokio_cache::data_struct::ValueEx;
 use crate::tokio_cache::error::TokioActorCacheError;
 
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, interval};
 
@@ -73,7 +73,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .try_send(ttl_cmd)
+                .send(ttl_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             let r = resp_rx
                 .await
@@ -90,7 +90,7 @@ where
             let (resp_tx, resp_rx) = oneshot::channel();
             let get_all_cmd = HashMapCmd::GetAll { resp_tx };
             node.tx
-                .try_send(get_all_cmd)
+                .send(get_all_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -106,7 +106,7 @@ where
         for node in self.nodes.values() {
             let clear_cmd = HashMapCmd::Clear;
             node.tx
-                .try_send(clear_cmd)
+                .send(clear_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?
         }
 
@@ -124,7 +124,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .try_send(remove_cmd)
+                .send(remove_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -147,7 +147,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .try_send(contains_key_cmd)
+                .send(contains_key_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -170,7 +170,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .try_send(mget_cmd)
+                .send(mget_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -207,7 +207,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .try_send(minsert_cmd)
+                .send(minsert_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
         }
 
@@ -222,7 +222,7 @@ where
         };
         let node = self.get_node(key)?;
         node.tx
-            .try_send(get_cmd)
+            .send(get_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -244,14 +244,14 @@ where
         };
         let node = self.get_node(key)?;
         node.tx
-            .try_send(insert_cmd)
+            .send(insert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn new(buffer: usize, n_node: u64) -> Self {
+    pub async fn new(n_node: u64) -> Self {
         let mut nodes = HashMap::new();
         for i in 0..n_node {
-            let vec_cache = HashMapCache::<K, V>::new(buffer).await;
+            let vec_cache = HashMapCache::<K, V>::new().await;
             nodes.insert(i, vec_cache);
         }
         Self { nodes }
@@ -269,7 +269,7 @@ where
 
 #[derive(Debug, Clone)]
 pub struct HashMapCache<K, V> {
-    pub tx: Sender<HashMapCmd<K, V>>,
+    pub tx: UnboundedSender<HashMapCmd<K, V>>,
 }
 
 impl<K, V> HashMapCache<K, V>
@@ -282,7 +282,7 @@ where
         let keys = keys.to_vec();
         let ttl_cmd = HashMapCmd::TTL { keys, resp_tx };
         self.tx
-            .try_send(ttl_cmd)
+            .send(ttl_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -293,7 +293,7 @@ where
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_all_cmd = HashMapCmd::GetAll { resp_tx };
         self.tx
-            .try_send(get_all_cmd)
+            .send(get_all_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -303,7 +303,7 @@ where
     pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashMapCmd::Clear;
         self.tx
-            .try_send(clear_cmd)
+            .send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -312,7 +312,7 @@ where
         let keys = keys.to_vec();
         let remove_cmd = HashMapCmd::Remove { keys, resp_tx };
         self.tx
-            .try_send(remove_cmd)
+            .send(remove_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -324,7 +324,7 @@ where
         let keys = keys.to_vec();
         let contains_key_cmd = HashMapCmd::ContainsKey { keys, resp_tx };
         self.tx
-            .try_send(contains_key_cmd)
+            .send(contains_key_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -336,7 +336,7 @@ where
         let keys = keys.to_vec();
         let mget_cmd = HashMapCmd::MGet { keys, resp_tx };
         self.tx
-            .try_send(mget_cmd)
+            .send(mget_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -360,7 +360,7 @@ where
         let nx = nx.to_vec();
         let minsert_cmd = HashMapCmd::MInsert { keys, vals, ex, nx };
         self.tx
-            .try_send(minsert_cmd)
+            .send(minsert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -368,7 +368,7 @@ where
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_cmd = HashMapCmd::Get { key, resp_tx };
         self.tx
-            .try_send(get_cmd)
+            .send(get_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -384,18 +384,18 @@ where
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
         self.tx
-            .try_send(insert_cmd)
+            .send(insert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn new(buffer: usize) -> Self
+    pub async fn new() -> Self
     where
         K: Debug + Clone + Eq + Hash + Send + 'static,
         V: Debug + Clone + Eq + Hash + Send + 'static,
     {
         let mut hm = HashMap::<K, ValueEx<V>>::new();
 
-        let (tx, mut rx) = mpsc::channel(buffer);
+        let (tx, mut rx) = mpsc::unbounded_channel();
 
         tokio::spawn(async move {
             let mut ticker = interval(Duration::from_millis(100));
