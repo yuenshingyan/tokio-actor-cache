@@ -1,5 +1,5 @@
 [package]
-name = "tokio-actor-cache"
+name = "tokio-cache"
 version = "0.1.0"
 edition = "2024"
 
