@@ -61,7 +61,7 @@ where
     K: Clone + Debug + Eq + Hash + Send + 'static + Display,
     V: Clone + Debug + Eq + Hash + Send + 'static,
 {
-    pub async fn try_ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
+    pub async fn ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let keys = keys.to_vec();
 
         let mut res = Vec::new();
@@ -84,7 +84,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
+    pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
         let mut res = HashMap::new();
         for node in self.nodes.values() {
             let (resp_tx, resp_rx) = oneshot::channel();
@@ -102,7 +102,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_clear(&self) -> Result<(), TokioActorCacheError> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         for node in self.nodes.values() {
             let clear_cmd = HashMapCmd::Clear;
             node.tx
@@ -113,7 +113,7 @@ where
         Ok(())
     }
 
-    pub async fn try_remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
+    pub async fn remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
         let keys = keys.to_vec();
         let mut res = Vec::new();
         for key in keys.clone() {
@@ -136,7 +136,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
+    pub async fn contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
         let keys = keys.to_vec();
         let mut res = Vec::new();
         for key in keys.clone() {
@@ -159,198 +159,6 @@ where
         Ok(res)
     }
 
-    pub async fn try_mget(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let mget_cmd = HashMapCmd::MGet {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(mget_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn try_minsert(
-        &self,
-        keys: &[K],
-        vals: &[V],
-        ex: &[Option<Duration>],
-        nx: &[Option<bool>],
-    ) -> Result<(), TokioActorCacheError> {
-        if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen);
-        }
-
-        let keys = keys.to_vec();
-        let vals = vals.to_vec();
-        let ex = ex.to_vec();
-        let nx = nx.to_vec();
-
-        for (key, val) in keys.into_iter().zip(vals).clone() {
-            let minsert_cmd = HashMapCmd::MInsert {
-                keys: vec![key.clone()],
-                vals: vec![val.clone()],
-                ex: ex.clone(),
-                nx: nx.clone(),
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(minsert_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn try_get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let get_cmd = HashMapCmd::Get {
-            key: key.clone(),
-            resp_tx,
-        };
-        let node = self.get_node(key)?;
-        node.tx
-            .try_send(get_cmd)
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn try_insert(
-        &self,
-        key: K,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    ) -> Result<(), TokioActorCacheError> {
-        let insert_cmd = HashMapCmd::Insert {
-            key: key.clone(),
-            val,
-            ex,
-            nx,
-        };
-        let node = self.get_node(key)?;
-        node.tx
-            .try_send(insert_cmd)
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let ttl_cmd = HashMapCmd::TTL {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(ttl_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            let r = resp_rx
-                .await
-                .map_err(|_| return TokioActorCacheError::Receive)?;
-            res.extend(r);
-        }
-
-        Ok(res)
-    }
-
-    pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
-        let mut res = HashMap::new();
-        for node in self.nodes.values() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let get_all_cmd = HashMapCmd::GetAll { resp_tx };
-            node.tx
-                .send(get_all_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
-        for node in self.nodes.values() {
-            let clear_cmd = HashMapCmd::Clear;
-            node.tx
-                .send(clear_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?
-        }
-
-        Ok(())
-    }
-
-    pub async fn remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let remove_cmd = HashMapCmd::Remove {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(remove_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let contains_key_cmd = HashMapCmd::ContainsKey {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(contains_key_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
     pub async fn mget(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
         let keys = keys.to_vec();
         let mut res = Vec::new();
@@ -362,8 +170,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .send(mget_cmd)
-                .await
+                .try_send(mget_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
             res.extend(
                 resp_rx
@@ -400,8 +207,7 @@ where
             };
             let node = self.get_node(key)?;
             node.tx
-                .send(minsert_cmd)
-                .await
+                .try_send(minsert_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
         }
 
@@ -416,8 +222,7 @@ where
         };
         let node = self.get_node(key)?;
         node.tx
-            .send(get_cmd)
-            .await
+            .try_send(get_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -439,8 +244,7 @@ where
         };
         let node = self.get_node(key)?;
         node.tx
-            .send(insert_cmd)
-            .await
+            .try_send(insert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -473,7 +277,7 @@ where
     K: Clone,
     V: Clone,
 {
-    pub async fn try_ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
+    pub async fn ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let keys = keys.to_vec();
         let ttl_cmd = HashMapCmd::TTL { keys, resp_tx };
@@ -485,7 +289,7 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
+    pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_all_cmd = HashMapCmd::GetAll { resp_tx };
         self.tx
@@ -496,14 +300,14 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_clear(&self) -> Result<(), TokioActorCacheError> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = HashMapCmd::Clear;
         self.tx
             .try_send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn try_remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
+    pub async fn remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let keys = keys.to_vec();
         let remove_cmd = HashMapCmd::Remove { keys, resp_tx };
@@ -515,7 +319,7 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
+    pub async fn contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let keys = keys.to_vec();
         let contains_key_cmd = HashMapCmd::ContainsKey { keys, resp_tx };
@@ -527,129 +331,12 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_mget(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let keys = keys.to_vec();
-        let mget_cmd = HashMapCmd::MGet { keys, resp_tx };
-        self.tx
-            .try_send(mget_cmd)
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn try_minsert(
-        &self,
-        keys: &[K],
-        vals: &[V],
-        ex: &[Option<Duration>],
-        nx: &[Option<bool>],
-    ) -> Result<(), TokioActorCacheError> {
-        if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen);
-        }
-
-        let keys = keys.to_vec();
-        let vals = vals.to_vec();
-        let ex = ex.to_vec();
-        let nx = nx.to_vec();
-        let minsert_cmd = HashMapCmd::MInsert { keys, vals, ex, nx };
-        self.tx
-            .try_send(minsert_cmd)
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn try_get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let get_cmd = HashMapCmd::Get { key, resp_tx };
-        self.tx
-            .try_send(get_cmd)
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn try_insert(
-        &self,
-        key: K,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    ) -> Result<(), TokioActorCacheError> {
-        let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
-        self.tx
-            .try_send(insert_cmd)
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let keys = keys.to_vec();
-        let ttl_cmd = HashMapCmd::TTL { keys, resp_tx };
-        self.tx
-            .send(ttl_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let get_all_cmd = HashMapCmd::GetAll { resp_tx };
-        self.tx
-            .send(get_all_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
-        let clear_cmd = HashMapCmd::Clear;
-        self.tx
-            .send(clear_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let keys = keys.to_vec();
-        let remove_cmd = HashMapCmd::Remove { keys, resp_tx };
-        self.tx
-            .send(remove_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let keys = keys.to_vec();
-        let contains_key_cmd = HashMapCmd::ContainsKey { keys, resp_tx };
-        self.tx
-            .send(contains_key_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
     pub async fn mget(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let keys = keys.to_vec();
         let mget_cmd = HashMapCmd::MGet { keys, resp_tx };
         self.tx
-            .send(mget_cmd)
-            .await
+            .try_send(mget_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -673,8 +360,7 @@ where
         let nx = nx.to_vec();
         let minsert_cmd = HashMapCmd::MInsert { keys, vals, ex, nx };
         self.tx
-            .send(minsert_cmd)
-            .await
+            .try_send(minsert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -682,8 +368,7 @@ where
         let (resp_tx, resp_rx) = oneshot::channel();
         let get_cmd = HashMapCmd::Get { key, resp_tx };
         self.tx
-            .send(get_cmd)
-            .await
+            .try_send(get_cmd)
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx
             .await
@@ -699,8 +384,7 @@ where
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
         self.tx
-            .send(insert_cmd)
-            .await
+            .try_send(insert_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 

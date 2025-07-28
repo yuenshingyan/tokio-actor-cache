@@ -50,7 +50,7 @@ impl<V> VecCacheCluster<V>
 where
     V: Clone + Debug + Eq + Hash + Send + 'static + Display,
 {
-    pub async fn try_ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
+    pub async fn ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let vals = vals.to_vec();
         let mut res = Vec::new();
         for val in vals {
@@ -73,7 +73,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_clear(&self) -> Result<(), TokioActorCacheError> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         for node in self.nodes.values() {
             let clear_cmd = VecCmd::Clear;
             node.tx
@@ -84,7 +84,7 @@ where
         Ok(())
     }
 
-    pub async fn try_remove(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
+    pub async fn remove(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
         let vals = vals.to_vec();
         let mut res = Vec::new();
         for val in vals {
@@ -107,7 +107,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_contains(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
+    pub async fn contains(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
         let vals = vals.to_vec();
         let mut res = Vec::new();
         for val in vals {
@@ -129,7 +129,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
+    pub async fn get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
         let mut res = Vec::new();
         for node in self.nodes.values() {
             let (resp_tx, resp_rx) = oneshot::channel();
@@ -143,7 +143,7 @@ where
         Ok(res)
     }
 
-    pub async fn try_mpush(
+    pub async fn mpush(
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
@@ -170,145 +170,6 @@ where
         Ok(())
     }
 
-    pub async fn try_push(
-        &self,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    ) -> Result<(), TokioActorCacheError> {
-        let node = self.get_node(val.clone())?;
-        let push_cmd = VecCmd::Push { val, ex, nx };
-        node.tx
-            .try_send(push_cmd)
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
-        let vals = vals.to_vec();
-        let mut res = Vec::new();
-        for val in vals {
-            let node = self.get_node(val.clone())?;
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let ttl_cmd = VecCmd::TTL {
-                vals: vec![val],
-                resp_tx,
-            };
-            node.tx
-                .send(ttl_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
-        for node in self.nodes.values() {
-            let clear_cmd = VecCmd::Clear;
-            node.tx
-                .send(clear_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn remove(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let vals = vals.to_vec();
-        let mut res = Vec::new();
-        for val in vals {
-            let node = self.get_node(val.clone())?;
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let remove_cmd = VecCmd::Remove {
-                vals: vec![val],
-                resp_tx,
-            };
-            node.tx
-                .send(remove_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn contains(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let vals = vals.to_vec();
-        let mut res = Vec::new();
-        for val in vals {
-            let node = self.get_node(val.clone())?;
-            let (resp_tx, resp_rx) = oneshot::channel();
-            node.tx
-                .send(VecCmd::Contains {
-                    vals: vec![val],
-                    resp_tx,
-                })
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
-        let mut res = Vec::new();
-        for node in self.nodes.values() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let get_all_cmd = VecCmd::GetAll { resp_tx };
-            node.tx
-                .send(get_all_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(resp_rx.await.map_err(|_| TokioActorCacheError::Receive)?);
-        }
-
-        Ok(res)
-    }
-
-    pub async fn mpush(
-        &self,
-        vals: &[V],
-        ex: &[Option<Duration>],
-        nx: &[Option<bool>],
-    ) -> Result<(), TokioActorCacheError> {
-        if vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen);
-        }
-
-        let vals = vals.to_vec();
-        let ex = ex.to_vec();
-        let nx = nx.to_vec();
-        for val in vals {
-            let node = self.get_node(val.clone())?;
-            node.tx
-                .send(VecCmd::MPush {
-                    vals: vec![val],
-                    ex: ex.clone(),
-                    nx: nx.clone(),
-                })
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-        }
-
-        Ok(())
-    }
-
     pub async fn push(
         &self,
         val: V,
@@ -318,8 +179,7 @@ where
         let node = self.get_node(val.clone())?;
         let push_cmd = VecCmd::Push { val, ex, nx };
         node.tx
-            .send(push_cmd)
-            .await
+            .try_send(push_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -351,7 +211,7 @@ impl<V> VecCache<V>
 where
     V: Clone,
 {
-    pub async fn try_ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
+    pub async fn ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let vals = vals.to_vec();
         let ttl_cmd = VecCmd::TTL { vals, resp_tx };
@@ -363,14 +223,14 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_clear(&self) -> Result<(), TokioActorCacheError> {
+    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
         let clear_cmd = VecCmd::Clear;
         self.tx
             .try_send(clear_cmd)
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn try_remove(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
+    pub async fn remove(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let vals = vals.to_vec();
         let remove_cmd = VecCmd::Remove { vals, resp_tx };
@@ -382,7 +242,7 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_contains(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
+    pub async fn contains(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let vals = vals.to_vec();
         self.tx
@@ -393,94 +253,10 @@ where
             .map_err(|_| return TokioActorCacheError::Receive)
     }
 
-    pub async fn try_get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        self.tx
-            .try_send(VecCmd::GetAll { resp_tx })
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx.await.map_err(|_| TokioActorCacheError::Receive)
-    }
-
-    pub async fn try_mpush(
-        &self,
-        vals: &[V],
-        ex: &[Option<Duration>],
-        nx: &[Option<bool>],
-    ) -> Result<(), TokioActorCacheError> {
-        if vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen);
-        }
-
-        let vals = vals.to_vec();
-        let ex = ex.to_vec();
-        let nx = nx.to_vec();
-        self.tx
-            .try_send(VecCmd::MPush { vals, ex, nx })
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn try_push(
-        &self,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    ) -> Result<(), TokioActorCacheError> {
-        self.tx
-            .try_send(VecCmd::Push { val, ex, nx })
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let vals = vals.to_vec();
-        let ttl_cmd = VecCmd::TTL { vals, resp_tx };
-        self.tx
-            .send(ttl_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
-        let clear_cmd = VecCmd::Clear;
-        self.tx
-            .send(clear_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn remove(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let vals = vals.to_vec();
-        let remove_cmd = VecCmd::Remove { vals, resp_tx };
-        self.tx
-            .send(remove_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn contains(&self, vals: &[V]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let vals = vals.to_vec();
-        self.tx
-            .send(VecCmd::Contains { vals, resp_tx })
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
     pub async fn get_all(&self) -> Result<Vec<V>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         self.tx
-            .send(VecCmd::GetAll { resp_tx })
-            .await
+            .try_send(VecCmd::GetAll { resp_tx })
             .map_err(|_| TokioActorCacheError::Send)?;
         resp_rx.await.map_err(|_| TokioActorCacheError::Receive)
     }
@@ -499,8 +275,7 @@ where
         let ex = ex.to_vec();
         let nx = nx.to_vec();
         self.tx
-            .send(VecCmd::MPush { vals, ex, nx })
-            .await
+            .try_send(VecCmd::MPush { vals, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -511,8 +286,7 @@ where
         nx: Option<bool>,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
-            .send(VecCmd::Push { val, ex, nx })
-            .await
+            .try_send(VecCmd::Push { val, ex, nx })
             .map_err(|_| TokioActorCacheError::Send)
     }
 
