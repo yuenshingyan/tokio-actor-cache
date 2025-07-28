@@ -2,11 +2,11 @@
 mod tests {
     use std::time::Duration;
 
-    use crate::tokio_cache::bounded::hm::HashMapCacheCluster;
+    use crate::tokio_cache::unbounded::hm::HashMapCacheCluster;
 
     #[tokio::test]
     async fn test_hash_id() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         let keys = vec![
             "a".to_string(),
             "b".to_string(),
@@ -25,7 +25,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_ttl() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster
             .insert("a", 10, Some(Duration::from_secs(1)), None)
             .await
@@ -37,7 +37,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         hm_cluster.insert("b", 12, None, None).await.unwrap();
         hm_cluster.insert("c", 20, None, None).await.unwrap();
@@ -50,7 +50,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mget() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
@@ -66,7 +66,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
@@ -82,7 +82,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_keys() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
@@ -101,7 +101,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_nx_if_not_exists() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         hm_cluster
             .minsert(
@@ -118,7 +118,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_nx_if_exists() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         hm_cluster
             .minsert(
@@ -135,7 +135,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_ex() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
@@ -160,7 +160,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
@@ -180,7 +180,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_inconsistent_len() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         let res = hm_cluster
             .minsert(
                 &["a", "b"],
@@ -194,7 +194,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_nx_if_not_exists() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         hm_cluster.insert("a", 20, None, None).await.unwrap();
         let val = hm_cluster.get("a").await.unwrap();
@@ -203,7 +203,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_nx_if_exists() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         hm_cluster.insert("a", 20, None, Some(true)).await.unwrap();
         let val = hm_cluster.get("a").await.unwrap();
@@ -212,7 +212,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_ex() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         hm_cluster
             .insert("b", 20, Some(Duration::from_secs(1)), None)
@@ -227,7 +227,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert() {
-        let hm_cluster = HashMapCacheCluster::new(32, 3).await;
+        let hm_cluster = HashMapCacheCluster::new(3).await;
         hm_cluster.insert("a", 10, None, None).await.unwrap();
         let val = hm_cluster.get("a").await.unwrap();
         assert_eq!(val, Some(10));

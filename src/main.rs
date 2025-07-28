@@ -14,12 +14,22 @@ pub mod tokio_cache {
     pub mod error;
 }
 pub mod unittests {
-    pub mod hm;
-    pub mod hm_cluster;
-    pub mod hs;
-    pub mod hs_cluster;
-    pub mod vec;
-    pub mod vec_cluster;
+    pub mod bounded {
+        pub mod hm;
+        pub mod hm_cluster;
+        pub mod hs;
+        pub mod hs_cluster;
+        pub mod vec;
+        pub mod vec_cluster;
+    }
+    pub mod unbounded {
+        pub mod hm;
+        pub mod hm_cluster;
+        pub mod hs;
+        pub mod hs_cluster;
+        pub mod vec;
+        pub mod vec_cluster;
+    }
 }
 
 #[tokio::main]

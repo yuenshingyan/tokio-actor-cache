@@ -2,11 +2,11 @@
 mod tests {
     use std::time::Duration;
 
-    use crate::tokio_cache::bounded::hm::HashMapCache;
+    use crate::tokio_cache::unbounded::hm::HashMapCache;
 
     #[tokio::test]
     async fn test_ttl() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache
             .insert("a", 10, Some(Duration::from_secs(1)), None)
             .await
@@ -18,7 +18,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache.insert("b", 12, None, None).await.unwrap();
         hm_cache.insert("c", 20, None, None).await.unwrap();
@@ -31,7 +31,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_mget() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -47,7 +47,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -63,7 +63,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_keys() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -79,7 +79,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_nx_if_not_exists() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache
             .minsert(
@@ -96,7 +96,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_nx_if_exists() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache
             .minsert(
@@ -113,7 +113,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_ex() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -138,7 +138,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -158,7 +158,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_inconsistent_len() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         let res = hm_cache
             .minsert(
                 &["a", "b"],
@@ -172,7 +172,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_nx_if_not_exists() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache.insert("a", 20, None, None).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
@@ -181,7 +181,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_nx_if_exists() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache.insert("a", 20, None, Some(true)).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
@@ -190,7 +190,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_ex() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache
             .insert("b", 20, Some(Duration::from_secs(1)), None)
@@ -205,7 +205,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert() {
-        let hm_cache = HashMapCache::new(32).await;
+        let hm_cache = HashMapCache::new().await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
