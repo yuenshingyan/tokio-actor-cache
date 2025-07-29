@@ -1,3 +1,7 @@
+use std::time::Duration;
+
+use crate::{tokio_cache::unbounded::hm::HashMapCache, unittests::bounded::hm_cluster};
+
 pub mod tokio_cache {
     pub mod bounded {
         pub mod hm;
@@ -34,6 +38,26 @@ pub mod unittests {
 
 #[tokio::main]
 async fn main() {
+    let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
+    let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
+    hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+
+    hm_cluster1.insert("a", 1, None, None).await.unwrap();
+
+    let val_1 = hm_cluster1.get("a").await.unwrap();
+    println!("{:?}", val_1);
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let val_2 = hm_cluster2.get("a").await.unwrap();
+    println!("{:?}", val_2);
+
+    hm_cluster2.stop_replicating().await.unwrap();
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    let val_2 = hm_cluster2.get("a").await.unwrap();
+    println!("{:?}", val_2);
 
     // High-Value Functionality
     // 1. Cache Expiration Policies

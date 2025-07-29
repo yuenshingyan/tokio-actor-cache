@@ -5,6 +5,73 @@ mod tests {
     use crate::tokio_cache::unbounded::hm::HashMapCache;
 
     #[tokio::test]
+    async fn test_replicated_data_persist() {
+        let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
+        let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
+        hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+
+        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+
+        let val_1 = hm_cluster1.get("a").await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        hm_cluster2.stop_replicating().await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let val_2 = hm_cluster2.get("a").await.unwrap();
+
+        assert_eq!(val_1, val_2);
+    }
+
+    #[tokio::test]
+    async fn test_stop_replicating() {
+        let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
+        let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
+        hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+
+        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+
+        let val_1 = hm_cluster1.get("a").await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        hm_cluster2.stop_replicating().await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let val_2 = hm_cluster2.get("a").await.unwrap();
+
+        assert_eq!(val_1, val_2);
+
+        hm_cluster1.insert("a", 10, None, None).await.unwrap();
+
+        let val_1 = hm_cluster1.get("a").await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        assert!(val_1 != val_2);
+    }
+
+    #[tokio::test]
+    async fn test_replicate() {
+        let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
+        let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
+        hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+
+        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+
+        let val_1 = hm_cluster1.get("a").await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let val_2 = hm_cluster2.get("a").await.unwrap();
+
+        assert_eq!(val_1, val_2);
+    }
+
+    #[tokio::test]
     async fn test_ttl() {
         let hm_cache = HashMapCache::new().await;
         hm_cache
