@@ -13,6 +13,16 @@ use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum HashMapCmd<K, V> {
+    StopReplicating,
+    IsReplica {
+        resp_tx: oneshot::Sender<bool>,
+    },
+    Replicate {
+        master: HashMapCache<K, V>,
+    },
+    GetAllRaw {
+        resp_tx: oneshot::Sender<HashMap<K, ValueEx<V>>>,
+    },
     TTL {
         keys: Vec<K>,
         resp_tx: oneshot::Sender<Vec<Option<Duration>>>,
@@ -473,6 +483,20 @@ where
     K: Clone,
     V: Clone,
 {
+    pub async fn try_stop_replicating(&self) -> Result<(), TokioActorCacheError> {
+        let stop_replicating_cmd = HashMapCmd::StopReplicating;
+        self.tx
+            .try_send(stop_replicating_cmd)
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
+    pub async fn try_replicate(&self, master: &Self) -> Result<(), TokioActorCacheError> {
+        let replicate_cmd = HashMapCmd::Replicate { master: master.clone() };
+        self.tx
+            .try_send(replicate_cmd)
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
     pub async fn try_ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let keys = keys.to_vec();
@@ -581,6 +605,22 @@ where
         let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
         self.tx
             .try_send(insert_cmd)
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
+    pub async fn stop_replicating(&self) -> Result<(), TokioActorCacheError> {
+        let stop_replicating_cmd = HashMapCmd::StopReplicating;
+        self.tx
+            .send(stop_replicating_cmd)
+            .await
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
+    pub async fn replicate(&self, master: &Self) -> Result<(), TokioActorCacheError> {
+        let replicate_cmd = HashMapCmd::Replicate { master: master.clone() };
+        self.tx
+            .send(replicate_cmd)
+            .await
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -710,6 +750,7 @@ where
         V: Debug + Clone + Eq + Hash + Send + 'static,
     {
         let mut hm = HashMap::<K, ValueEx<V>>::new();
+        let mut replica_of: Option<HashMapCache<K, V>> = None;
 
         let (tx, mut rx) = mpsc::channel(buffer);
 
@@ -717,9 +758,22 @@ where
             let mut ticker = interval(Duration::from_millis(100));
             loop {
                 tokio::select! {
-
-                    // Expire key-val.
                     _ = ticker.tick() => {
+
+                        // Replicate master.
+                        if let Some(ref master) = replica_of {
+                            let (resp_tx, resp_rx) = oneshot::channel();
+                            let get_all_raw_cmd = HashMapCmd::GetAllRaw { resp_tx };
+                            if let Err(_) = master.tx.try_send(get_all_raw_cmd) {
+                                eprintln!("the receiver dropped")
+                            }
+                            match resp_rx.await {
+                                Ok(master_hm) => hm = master_hm,
+                                Err(_) => eprintln!("the receiver dropped"),
+                            }
+                        }
+
+                        // Expire key-val.
                         hm.retain(|_k, val_ex| match val_ex.expiration {
                             Some(exp) => Instant::now() < exp,
                             None => true,
@@ -730,6 +784,24 @@ where
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                HashMapCmd::<K, V>::StopReplicating => {
+                                    replica_of = None;
+                                }
+                                HashMapCmd::<K, V>::IsReplica { resp_tx } => {
+                                    let is_replica = replica_of.is_some();
+                                    if let Err(_) = resp_tx.send(is_replica) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                                HashMapCmd::<K, V>::Replicate { master } => {
+                                    replica_of = Some(master);
+                                }
+                                HashMapCmd::<K, V>::GetAllRaw { resp_tx } => {
+                                    let val = hm.clone();
+                                    if let Err(_) = resp_tx.send(val) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 HashMapCmd::<K, V>::TTL { keys, resp_tx } => {
                                     let ttl = keys.iter().map(|key| {
                                         hm.get(&key).and_then(|val_ex| {
