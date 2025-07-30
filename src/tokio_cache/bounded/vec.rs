@@ -13,6 +13,16 @@ use tokio::time::{Instant, interval};
 
 #[derive(Debug)]
 pub enum VecCmd<V> {
+    StopReplicating,
+    IsReplica {
+        resp_tx: oneshot::Sender<bool>,
+    },
+    Replicate {
+        master: VecCache<V>,
+    },
+    GetAllRaw {
+        resp_tx: oneshot::Sender<Vec<ValueEx<V>>>,
+    },
     TTL {
         vals: Vec<V>,
         resp_tx: oneshot::Sender<Vec<Option<Duration>>>,
@@ -351,6 +361,20 @@ impl<V> VecCache<V>
 where
     V: Clone,
 {
+    pub async fn try_stop_replicating(&self) -> Result<(), TokioActorCacheError> {
+        let stop_replicating_cmd = VecCmd::StopReplicating;
+        self.tx
+            .try_send(stop_replicating_cmd)
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
+    pub async fn try_replicate(&self, master: &Self) -> Result<(), TokioActorCacheError> {
+        let replicate_cmd = VecCmd::Replicate { master: master.clone() };
+        self.tx
+            .try_send(replicate_cmd)
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
     pub async fn try_ttl(&self, vals: &[V]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
         let (resp_tx, resp_rx) = oneshot::channel();
         let vals = vals.to_vec();
@@ -427,6 +451,22 @@ where
     ) -> Result<(), TokioActorCacheError> {
         self.tx
             .try_send(VecCmd::Push { val, ex, nx })
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
+    pub async fn stop_replicating(&self) -> Result<(), TokioActorCacheError> {
+        let stop_replicating_cmd = VecCmd::StopReplicating;
+        self.tx
+            .send(stop_replicating_cmd)
+            .await
+            .map_err(|_| TokioActorCacheError::Send)
+    }
+
+    pub async fn replicate(&self, master: &Self) -> Result<(), TokioActorCacheError> {
+        let replicate_cmd = VecCmd::Replicate { master: master.clone() };
+        self.tx
+            .send(replicate_cmd)
+            .await
             .map_err(|_| TokioActorCacheError::Send)
     }
 
@@ -521,6 +561,7 @@ where
         V: Clone + Eq + Hash + Debug + Send + 'static,
     {
         let mut vec = Vec::new();
+        let mut replica_of: Option<VecCache<V>> = None;
 
         let (tx, mut rx) = mpsc::channel(buffer);
 
@@ -529,6 +570,20 @@ where
             loop {
                 tokio::select! {
                     _ = ticker.tick() => {
+
+                        // Replicate master.
+                        if let Some(ref master) = replica_of {
+                            let (resp_tx, resp_rx) = oneshot::channel();
+                            let get_all_raw_cmd = VecCmd::GetAllRaw { resp_tx };
+                            if let Err(_) = master.tx.try_send(get_all_raw_cmd) {
+                                eprintln!("the receiver dropped")
+                            }
+                            match resp_rx.await {
+                                Ok(master_vec) => vec = master_vec,
+                                Err(_) => eprintln!("the receiver dropped"),
+                            }
+                        }
+
                         // Expire key-val.
                         vec.retain(|val_ex: &ValueEx<V>| match val_ex.expiration {
                             Some(exp) => Instant::now() < exp,
@@ -538,6 +593,24 @@ where
                     command = rx.recv() => {
                         if let Some(cmd) = command {
                             match cmd {
+                                VecCmd::<V>::StopReplicating => {
+                                    replica_of = None;
+                                }
+                                VecCmd::<V>::IsReplica { resp_tx } => {
+                                    let is_replica = replica_of.is_some();
+                                    if let Err(_) = resp_tx.send(is_replica) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
+                                VecCmd::<V>::Replicate { master } => {
+                                    replica_of = Some(master);
+                                }
+                                VecCmd::<V>::GetAllRaw { resp_tx } => {
+                                    let val = vec.clone();
+                                    if let Err(_) = resp_tx.send(val) {
+                                        println!("the receiver dropped");
+                                    }
+                                }
                                 VecCmd::<V>::TTL { vals, resp_tx } => {
                                     let ttl = vals.into_iter().map(|val| {
                                         let res = vec.iter().find(|val_ex| {
