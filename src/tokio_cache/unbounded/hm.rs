@@ -231,6 +231,7 @@ where
                                 }
                                 HashMapCmd::<K, V>::IsReplica { resp_tx } => {
                                     let is_replica = replica_of.is_some();
+                                    
                                     if let Err(_) = resp_tx.send(is_replica) {
                                         println!("the receiver dropped");
                                     }
@@ -240,15 +241,22 @@ where
                                 }
                                 HashMapCmd::<K, V>::GetAllRaw { resp_tx } => {
                                     let val = hm.clone();
+                                    
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
                                     }
                                 }
                                 HashMapCmd::<K, V>::TTL { keys, resp_tx } => {
                                     let ttl = keys.iter().map(|key| {
+
+                                        // Get 'val_with_state' by 'key'.
                                         hm.get_mut(&key).and_then(|val_with_state| {
+
+                                            // incr 'call_cnt' by 1 and update 'last_accessed'.
                                             val_with_state.call_cnt += 1;
                                             val_with_state.last_accessed = Instant::now();
+
+                                            // Get ttl from 'val_with_state'.
                                             val_with_state.expiration.and_then(|ex| {
                                                     ex.checked_duration_since(Instant::now())
                                             })
@@ -259,19 +267,14 @@ where
                                     }
                                 }
                                 HashMapCmd::<K, V>::GetAll { resp_tx } => {
-
-                                    // Clone existing hm into val.
-                                    let val = hm.clone().into_iter().map(|(key, val_with_state)| {
-                                        (key, val_with_state.val)
-                                    }).collect::<HashMap<K, V>>();
-
-                                    // Incr all cnt by 1.
-                                    hm = hm.into_iter().map(|(key, mut val_with_state)| {
+                                    let vals = hm.iter_mut().map(|(key, val_with_state)| {
                                         val_with_state.call_cnt += 1;
                                         val_with_state.last_accessed = Instant::now();
-                                        (key, val_with_state)
-                                    }).collect::<HashMap<K, ValueWithState<V>>>();
-                                    if let Err(_) = resp_tx.send(val) {
+
+                                        (key.clone(), val_with_state.val.clone())
+                                    }).collect::<HashMap<K, V>>();
+
+                                    if let Err(_) = resp_tx.send(vals) {
                                         println!("the receiver dropped");
                                     }
                                 }
@@ -280,7 +283,9 @@ where
                                 }
                                 HashMapCmd::<K, V>::Remove { keys, resp_tx } => {
                                     let vals = keys.iter().map(|key| {
-                                        hm.remove(&key).and_then(|val_with_state| Some(val_with_state.val))
+                                        hm.remove(&key).and_then(|val_with_state| {
+                                            Some(val_with_state.val)
+                                        })
                                     }).collect::<Vec<Option<V>>>();
                                     if let Err(_) = resp_tx.send(vals) {
                                         println!("the receiver dropped");
@@ -288,14 +293,17 @@ where
                                 }
                                 HashMapCmd::<K, V>::ContainsKey {keys, resp_tx } => {
                                     let is_contains_keys = keys.iter().map(|key| {
+
+                                        // Incr 'call_cnt' by 1 and update 'last_accessed'.
                                         hm.get_mut(key).and_then(|val_with_state| {
                                             val_with_state.call_cnt += 1;
                                             val_with_state.last_accessed = Instant::now();
                                             Some(())
                                         });
+
                                         hm.contains_key(&key)
-                                        // TODO: incr and set last_accessed
                                     }).collect::<Vec<bool>>();
+
                                     if let Err(_) = resp_tx.send(is_contains_keys) {
                                         println!("the receiver dropped");
                                     }
