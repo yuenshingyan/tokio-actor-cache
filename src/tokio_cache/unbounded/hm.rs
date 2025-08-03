@@ -106,7 +106,7 @@ where
         keys: &[K],
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -138,7 +138,7 @@ where
         key: K,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashMapCmd::Insert { key, val, ex, nx };
         self.tx
@@ -198,6 +198,7 @@ where
                                             .min_by_key(|(_key, val_with_state)| val_with_state.call_cnt)
                                             .map(|(key, _val_with_state)| key.clone())
                                         {
+                                            println!("{:?}", lfu_key);
                                             hm.remove(&lfu_key);
                                         }
                                     }
@@ -323,17 +324,30 @@ where
                                 HashMapCmd::<K, V>::MInsert { keys, vals, ex, nx } => {
                                     for (((key, val), ex), nx) in keys.into_iter().zip(vals).zip(ex).zip(nx) {
                                         let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                        let call_cnt = if nx == Some(true) {
-                                            0
-                                        } else {
-                                            hm.get(&key).map_or(0, |v| v.call_cnt + 1)
-                                        };
                                         let last_accessed = Instant::now();
-                                        let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed};
-                                        if nx.is_some() && nx == Some(true) {
-                                            hm.entry(key).or_insert(val_with_state);
-                                        } else {
-                                            hm.insert(key, val_with_state);
+
+                                        match (hm.get(&key), nx) {
+                                            (Some(val_with_state), false) => {
+                                                let call_cnt = val_with_state.call_cnt + 1;
+                                                let val_with_state = ValueWithState { 
+                                                    val, 
+                                                    expiration, 
+                                                    call_cnt, 
+                                                    last_accessed,
+                                                };
+                                                hm.insert(key, val_with_state);
+                                            },
+                                            (None, true) | (None, false) => {
+                                                let call_cnt = 0;
+                                                let val_with_state = ValueWithState { 
+                                                    val, 
+                                                    expiration, 
+                                                    call_cnt, 
+                                                    last_accessed,
+                                                };
+                                                hm.insert(key, val_with_state);
+                                            },
+                                            _ => (),
                                         }
                                     }
                                 }
@@ -350,14 +364,31 @@ where
                                 }
                                 HashMapCmd::<K, V>::Insert { key, val, ex, nx } => {
                                     let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    let call_cnt = if nx == Some(true) {
-                                        0
-                                    } else {
-                                        hm.get(&key).map_or(0, |v| v.call_cnt + 1)
-                                    };
                                     let last_accessed = Instant::now();
-                                    let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
-                                    hm.insert(key, val_with_state);
+
+                                    match (hm.get(&key), nx) {
+                                        (Some(val_with_state), false) => {
+                                            let call_cnt = val_with_state.call_cnt + 1;
+                                            let val_with_state = ValueWithState { 
+                                                val, 
+                                                expiration, 
+                                                call_cnt, 
+                                                last_accessed,
+                                            };
+                                            hm.insert(key, val_with_state);
+                                        },
+                                        (None, true) | (None, false) => {
+                                            let call_cnt = 0;
+                                            let val_with_state = ValueWithState { 
+                                                val, 
+                                                expiration, 
+                                                call_cnt, 
+                                                last_accessed,
+                                            };
+                                            hm.insert(key, val_with_state);
+                                        },
+                                        _ => (),
+                                    }
                                 }
                             }
                         }
