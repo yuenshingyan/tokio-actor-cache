@@ -39,12 +39,12 @@ pub enum VecCmd<V> {
     MPush {
         vals: Vec<V>,
         ex: Vec<Option<Duration>>,
-        nx: Vec<Option<bool>>,
+        nx: Vec<bool>,
     },
     Push {
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     },
 }
 
@@ -79,12 +79,12 @@ pub enum HashSetCmd<V> {
     MInsert {
         vals: Vec<V>,
         ex: Vec<Option<Duration>>,
-        nx: Vec<Option<bool>>,
+        nx: Vec<bool>,
     },
     Insert {
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     },
 }
 
@@ -124,7 +124,7 @@ pub enum HashMapCmd<K, V> {
         keys: Vec<K>,
         vals: Vec<V>,
         ex: Vec<Option<Duration>>,
-        nx: Vec<Option<bool>>,
+        nx: Vec<bool>,
     },
     Get {
         key: K,
@@ -134,6 +134,6 @@ pub enum HashMapCmd<K, V> {
         key: K,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     },
 }
