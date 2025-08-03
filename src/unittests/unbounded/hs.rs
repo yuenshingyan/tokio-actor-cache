@@ -8,8 +8,8 @@ mod tests {
     async fn test_expiration_policy_lru() {
         let expiration_policy = ExpirationPolicy::LRU(1);
         let hs_cache = HashSetCache::<i32>::new(expiration_policy).await;
-        hs_cache.insert(1, None, None).await.unwrap();
-        hs_cache.insert(2, None, None).await.unwrap();
+        hs_cache.insert(1, None, false).await.unwrap();
+        hs_cache.insert(2, None, false).await.unwrap();
         tokio::time::sleep(Duration::from_secs(1)).await;
         let hs = hs_cache.get_all().await.unwrap();
         assert_eq!(HashSet::from([(2)]), hs);
@@ -19,9 +19,9 @@ mod tests {
     async fn test_expiration_policy_lfu() {
         let expiration_policy = ExpirationPolicy::LFU(1);
         let hs_cache = HashSetCache::<i32>::new(expiration_policy).await;
-        hs_cache.insert(1, None, None).await.unwrap();
-        hs_cache.insert(1, None, None).await.unwrap();
-        hs_cache.insert(2, None, None).await.unwrap();
+        hs_cache.insert(1, None, false).await.unwrap();
+        hs_cache.insert(1, None, false).await.unwrap();
+        hs_cache.insert(2, None, false).await.unwrap();
         tokio::time::sleep(Duration::from_secs(1)).await;
         let hs = hs_cache.get_all().await.unwrap();
         assert_eq!(HashSet::from([(1)]), hs);
@@ -34,7 +34,7 @@ mod tests {
         let hs_cluster2 = HashSetCache::<i32>::new(expiration_policy).await;
         hs_cluster2.replicate(&hs_cluster1).await.unwrap();
 
-        hs_cluster1.insert(1, None, None).await.unwrap();
+        hs_cluster1.insert(1, None, false).await.unwrap();
 
         let val_1 = hs_cluster1.get_all().await.unwrap();
 
@@ -56,7 +56,7 @@ mod tests {
         let hs_cluster2 = HashSetCache::<i32>::new(expiration_policy).await;
         hs_cluster2.replicate(&hs_cluster1).await.unwrap();
 
-        hs_cluster1.insert(1, None, None).await.unwrap();
+        hs_cluster1.insert(1, None, false).await.unwrap();
 
         let val_1 = hs_cluster1.get_all().await.unwrap();
 
@@ -70,7 +70,7 @@ mod tests {
 
         assert_eq!(val_1, val_2);
 
-        hs_cluster1.insert(10, None, None).await.unwrap();
+        hs_cluster1.insert(10, None, false).await.unwrap();
 
         let val_1 = hs_cluster1.get_all().await.unwrap();
 
@@ -86,7 +86,7 @@ mod tests {
         let hs_cluster2 = HashSetCache::<i32>::new(expiration_policy).await;
         hs_cluster2.replicate(&hs_cluster1).await.unwrap();
 
-        hs_cluster1.insert(1, None, None).await.unwrap();
+        hs_cluster1.insert(1, None, false).await.unwrap();
 
         let val_1 = hs_cluster1.get_all().await.unwrap();
 
@@ -102,7 +102,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
         hs_cache
-            .insert(10, Some(Duration::from_secs(1)), None)
+            .insert(10, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         let ttl = hs_cache.ttl(&[10, 20]).await.unwrap();
@@ -115,9 +115,9 @@ mod tests {
     async fn test_clear() {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
-        hs_cache.insert(10, None, None).await.unwrap();
-        hs_cache.insert(20, None, None).await.unwrap();
-        hs_cache.insert(30, None, None).await.unwrap();
+        hs_cache.insert(10, None, false).await.unwrap();
+        hs_cache.insert(20, None, false).await.unwrap();
+        hs_cache.insert(30, None, false).await.unwrap();
         let hs = hs_cache.get_all().await.unwrap();
         assert_eq!(hs, HashSet::from([10, 20, 30]));
         hs_cache.clear().await.unwrap();
@@ -130,7 +130,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
         hs_cache
-            .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
+            .minsert(&[10, 20, 30], &[None, None, None], &[false, false, false])
             .await
             .unwrap();
         let vals = hs_cache.remove(&[10, 20, 30, 40]).await.unwrap();
@@ -141,7 +141,7 @@ mod tests {
     async fn test_contains() {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
-        hs_cache.insert(10, None, None).await.unwrap();
+        hs_cache.insert(10, None, false).await.unwrap();
         let vals = hs_cache.contains(&[10]).await.unwrap();
         assert_eq!(vals, vec![true]);
     }
@@ -158,7 +158,7 @@ mod tests {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -172,7 +172,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
         hs_cache
-            .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
+            .minsert(&[10, 20, 30], &[None, None, None], &[false, false, false])
             .await
             .unwrap();
         let val = hs_cache.get_all().await.unwrap();
@@ -183,9 +183,9 @@ mod tests {
     async fn test_insert_ex() {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
-        hs_cache.insert(10, None, None).await.unwrap();
+        hs_cache.insert(10, None, false).await.unwrap();
         hs_cache
-            .insert(20, Some(Duration::from_secs(1)), None)
+            .insert(20, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -197,9 +197,9 @@ mod tests {
     async fn test_insert() {
         let expiration_policy = ExpirationPolicy::None;
         let hs_cache = HashSetCache::new(expiration_policy).await;
-        hs_cache.insert(10, None, None).await.unwrap();
-        hs_cache.insert(20, None, None).await.unwrap();
-        hs_cache.insert(30, None, None).await.unwrap();
+        hs_cache.insert(10, None, false).await.unwrap();
+        hs_cache.insert(20, None, false).await.unwrap();
+        hs_cache.insert(30, None, false).await.unwrap();
         let val = hs_cache.get_all().await.unwrap();
         assert_eq!(val, HashSet::from([10, 20, 30]));
     }

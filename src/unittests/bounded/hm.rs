@@ -11,7 +11,7 @@ mod tests {
         let hm_cluster2 = HashMapCache::<&str, i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm_cluster1.insert("a", 1, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -33,7 +33,7 @@ mod tests {
         let hm_cluster2 = HashMapCache::<&str, i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm_cluster1.insert("a", 1, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -47,7 +47,7 @@ mod tests {
 
         assert_eq!(val_1, val_2);
 
-        hm_cluster1.insert("a", 10, None, None).await.unwrap();
+        hm_cluster1.insert("a", 10, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -63,7 +63,7 @@ mod tests {
         let hm_cluster2 = HashMapCache::<&str, i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm_cluster1.insert("a", 1, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -81,7 +81,7 @@ mod tests {
         let hm_cluster2 = HashMapCache::<&str, i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm_cluster1.insert("a", 1, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -103,7 +103,7 @@ mod tests {
         let hm_cluster2 = HashMapCache::<&str, i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm_cluster1.insert("a", 1, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -117,7 +117,7 @@ mod tests {
 
         assert_eq!(val_1, val_2);
 
-        hm_cluster1.insert("a", 10, None, None).await.unwrap();
+        hm_cluster1.insert("a", 10, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -133,7 +133,7 @@ mod tests {
         let hm_cluster2 = HashMapCache::<&str, i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm_cluster1.insert("a", 1, None, false).await.unwrap();
 
         let val_1 = hm_cluster1.get("a").await.unwrap();
 
@@ -149,7 +149,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
         hm_cache
-            .insert("a", 10, Some(Duration::from_secs(1)), None)
+            .insert("a", 10, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         let ttl = hm_cache.try_ttl(&["a", "b"]).await.unwrap();
@@ -161,9 +161,9 @@ mod tests {
     async fn test_try_clear() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
-        hm_cache.insert("b", 12, None, None).await.unwrap();
-        hm_cache.insert("c", 20, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
+        hm_cache.insert("b", 12, None, false).await.unwrap();
+        hm_cache.insert("c", 20, None, false).await.unwrap();
         let hm = hm_cache.get_all().await.unwrap();
         assert_eq!(!hm.is_empty(), true);
         hm_cache.try_clear().await.unwrap();
@@ -180,7 +180,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[Some(true), Some(true), Some(true)],
+                &[true, true, true],
             )
             .await
             .unwrap();
@@ -197,7 +197,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -214,7 +214,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -229,13 +229,13 @@ mod tests {
     async fn test_try_minsert_nx_if_not_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.try_insert("a", 10, None, None).await.unwrap();
+        hm_cache.try_insert("a", 10, None, false).await.unwrap();
         hm_cache
             .try_minsert(
                 &["a", "b", "c"],
                 &[20, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -247,13 +247,13 @@ mod tests {
     async fn test_try_minsert_nx_if_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.try_insert("a", 10, None, None).await.unwrap();
+        hm_cache.try_insert("a", 10, None, false).await.unwrap();
         hm_cache
             .try_minsert(
                 &["a", "b", "c"],
                 &[20, 20, 30],
                 &[None, None, None],
-                &[Some(true), Some(true), Some(true)],
+                &[true, true, true],
             )
             .await
             .unwrap();
@@ -274,7 +274,7 @@ mod tests {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -296,7 +296,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -317,7 +317,7 @@ mod tests {
                 &["a", "b"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await;
         assert!(res.is_err());
@@ -327,8 +327,8 @@ mod tests {
     async fn test_try_insert_nx_if_not_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.try_insert("a", 10, None, None).await.unwrap();
-        hm_cache.try_insert("a", 20, None, None).await.unwrap();
+        hm_cache.try_insert("a", 10, None, false).await.unwrap();
+        hm_cache.try_insert("a", 20, None, false).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(20));
     }
@@ -337,9 +337,9 @@ mod tests {
     async fn test_try_insert_nx_if_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.try_insert("a", 10, None, None).await.unwrap();
+        hm_cache.try_insert("a", 10, None, false).await.unwrap();
         hm_cache
-            .try_insert("a", 20, None, Some(true))
+            .try_insert("a", 20, None, true)
             .await
             .unwrap();
         let val = hm_cache.get("a").await.unwrap();
@@ -350,9 +350,9 @@ mod tests {
     async fn test_try_insert_ex() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.try_insert("a", 10, None, None).await.unwrap();
+        hm_cache.try_insert("a", 10, None, false).await.unwrap();
         hm_cache
-            .try_insert("b", 20, Some(Duration::from_secs(1)), None)
+            .try_insert("b", 20, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -366,7 +366,7 @@ mod tests {
     async fn test_try_insert() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.try_insert("a", 10, None, None).await.unwrap();
+        hm_cache.try_insert("a", 10, None, false).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }
@@ -376,7 +376,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
         hm_cache
-            .insert("a", 10, Some(Duration::from_secs(1)), None)
+            .insert("a", 10, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         let ttl = hm_cache.ttl(&["a", "b"]).await.unwrap();
@@ -388,9 +388,9 @@ mod tests {
     async fn test_clear() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
-        hm_cache.insert("b", 12, None, None).await.unwrap();
-        hm_cache.insert("c", 20, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
+        hm_cache.insert("b", 12, None, false).await.unwrap();
+        hm_cache.insert("c", 20, None, false).await.unwrap();
         let hm = hm_cache.get_all().await.unwrap();
         assert_eq!(!hm.is_empty(), true);
         hm_cache.clear().await.unwrap();
@@ -407,7 +407,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[Some(true), Some(true), Some(true)],
+                &[true, true, true],
             )
             .await
             .unwrap();
@@ -424,7 +424,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -441,7 +441,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -453,13 +453,13 @@ mod tests {
     async fn test_minsert_nx_if_not_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
         hm_cache
             .minsert(
                 &["a", "b", "c"],
                 &[20, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -471,13 +471,13 @@ mod tests {
     async fn test_minsert_nx_if_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
         hm_cache
             .minsert(
                 &["a", "b", "c"],
                 &[20, 20, 30],
                 &[None, None, None],
-                &[Some(true), Some(true), Some(true)],
+                &[true, true, true],
             )
             .await
             .unwrap();
@@ -498,7 +498,7 @@ mod tests {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -520,7 +520,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -541,7 +541,7 @@ mod tests {
                 &["a", "b"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await;
         assert!(res.is_err());
@@ -551,8 +551,8 @@ mod tests {
     async fn test_insert_nx_if_not_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
-        hm_cache.insert("a", 20, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
+        hm_cache.insert("a", 20, None, false).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(20));
     }
@@ -561,8 +561,8 @@ mod tests {
     async fn test_insert_nx_if_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
-        hm_cache.insert("a", 20, None, Some(true)).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
+        hm_cache.insert("a", 20, None, true).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }
@@ -571,9 +571,9 @@ mod tests {
     async fn test_insert_ex() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
         hm_cache
-            .insert("b", 20, Some(Duration::from_secs(1)), None)
+            .insert("b", 20, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -587,7 +587,7 @@ mod tests {
     async fn test_insert() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cache = HashMapCache::new(expiration_policy, 32).await;
-        hm_cache.insert("a", 10, None, None).await.unwrap();
+        hm_cache.insert("a", 10, None, false).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }

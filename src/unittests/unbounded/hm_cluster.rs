@@ -18,7 +18,7 @@ mod tests {
             "g".to_string(),
         ];
         for (k, v) in keys.into_iter().enumerate() {
-            hm_cluster.insert(k, v.clone(), None, None).await.unwrap();
+            hm_cluster.insert(k, v.clone(), None, false).await.unwrap();
             let val = hm_cluster.get(k).await.unwrap();
             assert_eq!(val, Some(v));
         }
@@ -29,7 +29,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
         hm_cluster
-            .insert("a", 10, Some(Duration::from_secs(1)), None)
+            .insert("a", 10, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         let ttl = hm_cluster.ttl(&["a", "b"]).await.unwrap();
@@ -41,9 +41,9 @@ mod tests {
     async fn test_clear() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
-        hm_cluster.insert("b", 12, None, None).await.unwrap();
-        hm_cluster.insert("c", 20, None, None).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
+        hm_cluster.insert("b", 12, None, false).await.unwrap();
+        hm_cluster.insert("c", 20, None, false).await.unwrap();
         let hm = hm_cluster.get_all().await.unwrap();
         assert_eq!(!hm.is_empty(), true);
         hm_cluster.clear().await.unwrap();
@@ -60,10 +60,11 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[Some(true), Some(true), Some(true)],
+                &[true, true, true],
             )
             .await
             .unwrap();
+        println!("{:?}", hm_cluster.get_all().await.unwrap());
         let vals = hm_cluster.mget(&["a", "b", "c", "d"]).await.unwrap();
         assert_eq!(vals, vec![Some(10), Some(20), Some(30), None]);
     }
@@ -77,7 +78,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -94,7 +95,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -109,13 +110,13 @@ mod tests {
     async fn test_minsert_nx_if_not_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
                 &[20, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -127,13 +128,13 @@ mod tests {
     async fn test_minsert_nx_if_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
         hm_cluster
             .minsert(
                 &["a", "b", "c"],
                 &[20, 20, 30],
                 &[None, None, None],
-                &[Some(true), Some(true), Some(true)],
+                &[true, true, true],
             )
             .await
             .unwrap();
@@ -154,7 +155,7 @@ mod tests {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -176,7 +177,7 @@ mod tests {
                 &["a", "b", "c"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -197,7 +198,7 @@ mod tests {
                 &["a", "b"],
                 &[10, 20, 30],
                 &[None, None, None],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await;
         assert!(res.is_err());
@@ -207,8 +208,8 @@ mod tests {
     async fn test_insert_nx_if_not_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
-        hm_cluster.insert("a", 20, None, None).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
+        hm_cluster.insert("a", 20, None, false).await.unwrap();
         let val = hm_cluster.get("a").await.unwrap();
         assert_eq!(val, Some(20));
     }
@@ -217,8 +218,8 @@ mod tests {
     async fn test_insert_nx_if_exists() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
-        hm_cluster.insert("a", 20, None, Some(true)).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
+        hm_cluster.insert("a", 20, None, true).await.unwrap();
         let val = hm_cluster.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }
@@ -227,9 +228,9 @@ mod tests {
     async fn test_insert_ex() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
         hm_cluster
-            .insert("b", 20, Some(Duration::from_secs(1)), None)
+            .insert("b", 20, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -243,7 +244,7 @@ mod tests {
     async fn test_insert() {
         let expiration_policy = ExpirationPolicy::None;
         let hm_cluster = HashMapCacheCluster::new(expiration_policy, 3).await;
-        hm_cluster.insert("a", 10, None, None).await.unwrap();
+        hm_cluster.insert("a", 10, None, false).await.unwrap();
         let val = hm_cluster.get("a").await.unwrap();
         assert_eq!(val, Some(10));
     }

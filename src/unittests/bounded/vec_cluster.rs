@@ -10,7 +10,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
         vec_cluster
-            .push(10, Some(Duration::from_secs(1)), None)
+            .push(10, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         let ttl = vec_cluster.try_ttl(&[10, 20]).await.unwrap();
@@ -22,9 +22,9 @@ mod tests {
     async fn test_try_clear() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
-        vec_cluster.push(20, None, None).await.unwrap();
-        vec_cluster.push(30, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
+        vec_cluster.push(20, None, false).await.unwrap();
+        vec_cluster.push(30, None, false).await.unwrap();
         let mut vec = vec_cluster.get_all().await.unwrap();
         vec.sort();
         assert_eq!(vec, Vec::from([10, 20, 30]));
@@ -37,7 +37,7 @@ mod tests {
     async fn test_try_remove() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
         let val = vec_cluster.try_remove(&[10, 20]).await.unwrap();
         assert_eq!(val, vec![true, false]);
     }
@@ -46,8 +46,8 @@ mod tests {
     async fn test_try_contains() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
-        vec_cluster.push(20, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
+        vec_cluster.push(20, None, false).await.unwrap();
         let val = vec_cluster.try_contains(&[10, 20, 30]).await.unwrap();
         assert_eq!(val, vec![true, true, false]);
     }
@@ -64,7 +64,7 @@ mod tests {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -78,7 +78,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
         vec_cluster
-            .try_mpush(&[10, 20, 30], &[None, None, None], &[None, None, None])
+            .try_mpush(&[10, 20, 30], &[None, None, None], &[false, false, false])
             .await
             .unwrap();
         let mut val = vec_cluster.get_all().await.unwrap();
@@ -90,9 +90,9 @@ mod tests {
     async fn test_try_push_ex() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.try_push(10, None, None).await.unwrap();
+        vec_cluster.try_push(10, None, false).await.unwrap();
         vec_cluster
-            .try_push(20, Some(Duration::from_secs(1)), None)
+            .try_push(20, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -104,9 +104,9 @@ mod tests {
     async fn test_try_push() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.try_push(10, None, None).await.unwrap();
-        vec_cluster.try_push(20, None, None).await.unwrap();
-        vec_cluster.try_push(30, None, None).await.unwrap();
+        vec_cluster.try_push(10, None, false).await.unwrap();
+        vec_cluster.try_push(20, None, false).await.unwrap();
+        vec_cluster.try_push(30, None, false).await.unwrap();
         let mut val = vec_cluster.get_all().await.unwrap();
         val.sort();
         assert_eq!(val, Vec::from([10, 20, 30]));
@@ -126,7 +126,7 @@ mod tests {
             "g".to_string(),
         ];
         for v in vals.clone() {
-            vec_cluster.push(v.clone(), None, None).await.unwrap();
+            vec_cluster.push(v.clone(), None, false).await.unwrap();
         }
 
         let mut vec = vec_cluster.get_all().await.unwrap();
@@ -139,7 +139,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
         vec_cluster
-            .push(10, Some(Duration::from_secs(1)), None)
+            .push(10, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         let ttl = vec_cluster.ttl(&[10, 20]).await.unwrap();
@@ -151,9 +151,9 @@ mod tests {
     async fn test_clear() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
-        vec_cluster.push(20, None, None).await.unwrap();
-        vec_cluster.push(30, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
+        vec_cluster.push(20, None, false).await.unwrap();
+        vec_cluster.push(30, None, false).await.unwrap();
         let mut vec = vec_cluster.get_all().await.unwrap();
         vec.sort();
         assert_eq!(vec, Vec::from([10, 20, 30]));
@@ -166,7 +166,7 @@ mod tests {
     async fn test_remove() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
         let val = vec_cluster.remove(&[10, 20]).await.unwrap();
         assert_eq!(val, vec![true, false]);
     }
@@ -175,8 +175,8 @@ mod tests {
     async fn test_contains() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
-        vec_cluster.push(20, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
+        vec_cluster.push(20, None, false).await.unwrap();
         let val = vec_cluster.contains(&[10, 20, 30]).await.unwrap();
         assert_eq!(val, vec![true, true, false]);
     }
@@ -193,7 +193,7 @@ mod tests {
                     Some(Duration::from_secs(1)),
                     Some(Duration::from_secs(1)),
                 ],
-                &[None, None, None],
+                &[false, false, false],
             )
             .await
             .unwrap();
@@ -207,7 +207,7 @@ mod tests {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
         vec_cluster
-            .mpush(&[10, 20, 30], &[None, None, None], &[None, None, None])
+            .mpush(&[10, 20, 30], &[None, None, None], &[false, false, false])
             .await
             .unwrap();
         let mut val = vec_cluster.get_all().await.unwrap();
@@ -219,9 +219,9 @@ mod tests {
     async fn test_push_ex() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
         vec_cluster
-            .push(20, Some(Duration::from_secs(1)), None)
+            .push(20, Some(Duration::from_secs(1)), false)
             .await
             .unwrap();
         tokio::time::sleep(Duration::from_secs(2)).await;
@@ -233,9 +233,9 @@ mod tests {
     async fn test_push() {
         let expiration_policy = ExpirationPolicy::None;
         let vec_cluster = VecCacheCluster::new(expiration_policy, 32, 3).await;
-        vec_cluster.push(10, None, None).await.unwrap();
-        vec_cluster.push(20, None, None).await.unwrap();
-        vec_cluster.push(30, None, None).await.unwrap();
+        vec_cluster.push(10, None, false).await.unwrap();
+        vec_cluster.push(20, None, false).await.unwrap();
+        vec_cluster.push(30, None, false).await.unwrap();
         let mut val = vec_cluster.get_all().await.unwrap();
         val.sort();
         assert_eq!(val, Vec::from([10, 20, 30]));
