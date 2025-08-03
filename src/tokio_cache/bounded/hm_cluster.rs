@@ -146,7 +146,7 @@ where
         keys: &[K],
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -193,7 +193,7 @@ where
         key: K,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashMapCmd::Insert {
             key: key.clone(),
@@ -339,7 +339,7 @@ where
         keys: &[K],
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -388,7 +388,7 @@ where
         key: K,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashMapCmd::Insert {
             key: key.clone(),
