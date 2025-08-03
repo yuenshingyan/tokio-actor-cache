@@ -2,11 +2,12 @@
 mod tests {
     use std::{collections::HashSet, time::Duration};
 
-    use crate::tokio_cache::bounded::hs::HashSetCacheCluster;
+    use crate::tokio_cache::{bounded::hs_cluster::HashSetCacheCluster, expiration_policy::ExpirationPolicy};
 
     #[tokio::test]
     async fn test_try_ttl() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .insert(10, Some(Duration::from_secs(1)), None)
             .await
@@ -18,7 +19,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_clear() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.insert(10, None, None).await.unwrap();
         hs_cluster.insert(20, None, None).await.unwrap();
         hs_cluster.insert(30, None, None).await.unwrap();
@@ -31,7 +33,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_remove() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -42,7 +45,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_contains() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.insert(10, None, None).await.unwrap();
         let vals = hs_cluster.try_contains(&[10]).await.unwrap();
         assert_eq!(vals, vec![true]);
@@ -50,7 +54,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_minsert_ex() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .try_minsert(
                 &[10, 20, 30],
@@ -70,7 +75,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_minsert() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .try_minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -81,7 +87,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_insert_ex() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.try_insert(10, None, None).await.unwrap();
         hs_cluster
             .try_insert(20, Some(Duration::from_secs(1)), None)
@@ -94,7 +101,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_insert() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.try_insert(10, None, None).await.unwrap();
         hs_cluster.try_insert(20, None, None).await.unwrap();
         hs_cluster.try_insert(30, None, None).await.unwrap();
@@ -104,7 +112,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_hash_id() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         let keys = vec![
             "a".to_string(),
             "b".to_string(),
@@ -124,7 +133,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_ttl() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .insert(10, Some(Duration::from_secs(1)), None)
             .await
@@ -137,7 +147,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.insert(10, None, None).await.unwrap();
         hs_cluster.insert(20, None, None).await.unwrap();
         hs_cluster.insert(30, None, None).await.unwrap();
@@ -150,7 +161,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -161,7 +173,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.insert(10, None, None).await.unwrap();
         let vals = hs_cluster.contains(&[10]).await.unwrap();
         assert_eq!(vals, vec![true]);
@@ -169,7 +182,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_ex() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .minsert(
                 &[10, 20, 30],
@@ -189,7 +203,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster
             .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -200,7 +215,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_ex() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.insert(10, None, None).await.unwrap();
         hs_cluster
             .insert(20, Some(Duration::from_secs(1)), None)
@@ -213,7 +229,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert() {
-        let hs_cluster = HashSetCacheCluster::new(32, 3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cluster = HashSetCacheCluster::new(expiration_policy, 32, 3).await;
         hs_cluster.insert(10, None, None).await.unwrap();
         hs_cluster.insert(20, None, None).await.unwrap();
         hs_cluster.insert(30, None, None).await.unwrap();

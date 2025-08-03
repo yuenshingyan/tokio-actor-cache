@@ -3,11 +3,12 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::tokio_cache::unbounded::vec::VecCacheCluster;
+    use crate::tokio_cache::{expiration_policy::ExpirationPolicy, unbounded::vec_cluster::VecCacheCluster};
 
     #[tokio::test]
     async fn test_hash_id() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         let vals = vec![
             "a".to_string(),
             "b".to_string(),
@@ -28,7 +29,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_ttl() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster
             .push(10, Some(Duration::from_secs(1)), None)
             .await
@@ -40,7 +42,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster.push(10, None, None).await.unwrap();
         vec_cluster.push(20, None, None).await.unwrap();
         vec_cluster.push(30, None, None).await.unwrap();
@@ -54,7 +57,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster.push(10, None, None).await.unwrap();
         let val = vec_cluster.remove(&[10, 20]).await.unwrap();
         assert_eq!(val, vec![true, false]);
@@ -62,7 +66,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster.push(10, None, None).await.unwrap();
         vec_cluster.push(20, None, None).await.unwrap();
         let val = vec_cluster.contains(&[10, 20, 30]).await.unwrap();
@@ -71,7 +76,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mpush_ex() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster
             .mpush(
                 &[10, 20, 30],
@@ -91,7 +97,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mpush() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster
             .mpush(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -103,7 +110,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_push_ex() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster.push(10, None, None).await.unwrap();
         vec_cluster
             .push(20, Some(Duration::from_secs(1)), None)
@@ -116,7 +124,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_push() {
-        let vec_cluster = VecCacheCluster::new(3).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cluster = VecCacheCluster::new(expiration_policy, 3).await;
         vec_cluster.push(10, None, None).await.unwrap();
         vec_cluster.push(20, None, None).await.unwrap();
         vec_cluster.push(30, None, None).await.unwrap();
