@@ -4,7 +4,7 @@ use std::hash::Hash;
 use std::time::Duration;
 
 use crate::tokio_cache::bounded::cmd::VecCmd;
-use crate::tokio_cache::data_struct::ValueEx;
+use crate::tokio_cache::data_struct::ValueWithState;
 use crate::tokio_cache::error::TokioActorCacheError;
 use crate::tokio_cache::expiration_policy::ExpirationPolicy;
 
@@ -222,9 +222,9 @@ where
     {
         let mut vec = match expiration_policy {
             ExpirationPolicy::LFU(capacity) | ExpirationPolicy::LRU(capacity) => {
-                Vec::<ValueEx<V>>::with_capacity(capacity)
+                Vec::<ValueWithState<V>>::with_capacity(capacity)
             },
-            ExpirationPolicy::None => Vec::<ValueEx<V>>::new(),
+            ExpirationPolicy::None => Vec::<ValueWithState<V>>::new(),
         };
         let mut replica_of: Option<VecCache<V>> = None;
 
@@ -250,7 +250,7 @@ where
                         }
 
                         // Expire key-val.
-                        vec.retain(|val_ex: &ValueEx<V>| match val_ex.expiration {
+                        vec.retain(|val_with_state: &ValueWithState<V>| match val_with_state.expiration {
                             Some(exp) => Instant::now() < exp,
                             None => true,
                         });
@@ -263,7 +263,7 @@ where
                                     if let Some(lfu_val_idx) = vec
                                         .iter()
                                         .enumerate()
-                                        .min_by_key(|(_, val_ex)| val_ex.call_cnt)
+                                        .min_by_key(|(_, val_with_state)| val_with_state.call_cnt)
                                         .map(|(i, _)| i)
                                     {
                                         vec.remove(lfu_val_idx);
@@ -276,7 +276,7 @@ where
                                     if let Some(lru_val_idx) = vec
                                         .iter()
                                         .enumerate()
-                                        .min_by_key(|(_, val_ex)| val_ex.last_accessed)
+                                        .min_by_key(|(_, val_with_state)| val_with_state.last_accessed)
                                         .map(|(i, _)| i)
                                     {
                                         vec.remove(lru_val_idx);
@@ -310,12 +310,12 @@ where
                                 VecCmd::<V>::TTL { vals, resp_tx } => {
                                     let mut ttl = Vec::with_capacity(vals.len());
                                     for val in &vals {
-                                        for val_ex in &mut vec {
-                                            if val_ex.val == *val {
-                                                val_ex.call_cnt += 1;
-                                                val_ex.last_accessed = Instant::now();
+                                        for val_with_state in &mut vec {
+                                            if val_with_state.val == *val {
+                                                val_with_state.call_cnt += 1;
+                                                val_with_state.last_accessed = Instant::now();
                                                 ttl.push(
-                                                    val_ex.expiration.and_then(|ex| {
+                                                    val_with_state.expiration.and_then(|ex| {
                                                         ex.checked_duration_since(Instant::now())
                                                     })
                                                 );
@@ -334,11 +334,11 @@ where
                                 }
                                 VecCmd::<V>::Remove { vals, resp_tx } => {
                                     let mut found_set = HashSet::with_capacity(vals.len());
-                                    for val_ex in &mut vec {
-                                        if vals.contains(&val_ex.val) {
-                                            val_ex.call_cnt += 1;
-                                            val_ex.last_accessed = Instant::now();
-                                            found_set.insert(val_ex.val.clone());
+                                    for val_with_state in &mut vec {
+                                        if vals.contains(&val_with_state.val) {
+                                            val_with_state.call_cnt += 1;
+                                            val_with_state.last_accessed = Instant::now();
+                                            found_set.insert(val_with_state.val.clone());
                                         }
                                     }
                                     let is_exist = vals.into_iter()
@@ -351,11 +351,11 @@ where
                                 }
                                 VecCmd::<V>::Contains { vals, resp_tx } => {
                                     let mut found_set = HashSet::new();
-                                    for val_ex in &mut vec {
-                                        if vals.contains(&val_ex.val) {
-                                            val_ex.call_cnt += 1;
-                                            val_ex.last_accessed = Instant::now();
-                                            found_set.insert(val_ex.val.clone());
+                                    for val_with_state in &mut vec {
+                                        if vals.contains(&val_with_state.val) {
+                                            val_with_state.call_cnt += 1;
+                                            val_with_state.last_accessed = Instant::now();
+                                            found_set.insert(val_with_state.val.clone());
                                         }
                                     }
                                     let is_exist = vals.into_iter()
@@ -367,10 +367,10 @@ where
                                     }
                                 }
                                 VecCmd::<V>::GetAll { resp_tx } => {
-                                    let vals = vec.iter_mut().map(|val_ex| {
-                                        val_ex.call_cnt += 1;
-                                        val_ex.last_accessed = Instant::now();
-                                        val_ex.val.clone()
+                                    let vals = vec.iter_mut().map(|val_with_state| {
+                                        val_with_state.call_cnt += 1;
+                                        val_with_state.last_accessed = Instant::now();
+                                        val_with_state.val.clone()
                                     }).collect::<Vec<V>>();
 
                                     if let Err(_) = resp_tx.send(vals) {
@@ -384,9 +384,9 @@ where
                                             0
                                         } else {
                                             let mut cnt = 0;
-                                            for val_ex in &vec {
-                                                if val_ex.val == val {
-                                                    cnt = val_ex.call_cnt + 1;
+                                            for val_with_state in &vec {
+                                                if val_with_state.val == val {
+                                                    cnt = val_with_state.call_cnt + 1;
                                                     break;
                                                 }
                                             }
@@ -394,11 +394,11 @@ where
                                             cnt
                                         };
                                         let last_accessed = Instant::now();
-                                        let val_ex = ValueEx { val, expiration, call_cnt, last_accessed };
-                                        if nx.is_some() && nx == Some(true) && !vec.contains(&val_ex) {
-                                            vec.push(val_ex);
+                                        let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
+                                        if nx.is_some() && nx == Some(true) && !vec.contains(&val_with_state) {
+                                            vec.push(val_with_state);
                                         } else {
-                                            vec.push(val_ex);
+                                            vec.push(val_with_state);
                                         }
                                     }
                                 }
@@ -408,9 +408,9 @@ where
                                         0
                                     } else {
                                         let mut cnt = 0;
-                                        for val_ex in &vec {
-                                            if val_ex.val == val {
-                                                cnt = val_ex.call_cnt + 1;
+                                        for val_with_state in &vec {
+                                            if val_with_state.val == val {
+                                                cnt = val_with_state.call_cnt + 1;
                                                 break;
                                             }
                                         }
@@ -418,11 +418,11 @@ where
                                         cnt
                                     };
                                     let last_accessed = Instant::now();
-                                    let val_ex = ValueEx { val, expiration, call_cnt, last_accessed };
-                                    if nx.is_some() && nx == Some(true) && !vec.contains(&val_ex) {
-                                        vec.push(val_ex);
+                                    let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
+                                    if nx.is_some() && nx == Some(true) && !vec.contains(&val_with_state) {
+                                        vec.push(val_with_state);
                                     } else {
-                                        vec.push(val_ex);
+                                        vec.push(val_with_state);
                                     }
                                 }
                             }

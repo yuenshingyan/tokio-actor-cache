@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::time::Duration;
 use tokio::sync::oneshot;
 
-use crate::tokio_cache::data_struct::{HashSetState, ValueEx};
+use crate::tokio_cache::data_struct::{HashSetState, ValueWithState};
 use crate::tokio_cache::bounded::hm::HashMapCache;
 use crate::tokio_cache::bounded::hs::HashSetCache;
 use crate::tokio_cache::bounded::vec::VecCache;
@@ -18,7 +18,7 @@ pub enum VecCmd<V> {
         master: VecCache<V>,
     },
     GetAllRaw {
-        resp_tx: oneshot::Sender<Vec<ValueEx<V>>>,
+        resp_tx: oneshot::Sender<Vec<ValueWithState<V>>>,
     },
     TTL {
         vals: Vec<V>,
@@ -98,7 +98,7 @@ pub enum HashMapCmd<K, V> {
         master: HashMapCache<K, V>,
     },
     GetAllRaw {
-        resp_tx: oneshot::Sender<HashMap<K, ValueEx<V>>>,
+        resp_tx: oneshot::Sender<HashMap<K, ValueWithState<V>>>,
     },
     TTL {
         keys: Vec<K>,

@@ -6,7 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, interval};
 
-use crate::tokio_cache::data_struct::ValueEx;
+use crate::tokio_cache::data_struct::ValueWithState;
 use crate::tokio_cache::error::TokioActorCacheError;
 use crate::tokio_cache::expiration_policy::ExpirationPolicy;
 use crate::tokio_cache::unbounded::cmd::HashMapCmd;
@@ -153,9 +153,9 @@ where
     {
         let mut hm = match expiration_policy {
             ExpirationPolicy::LFU(capacity) | ExpirationPolicy::LRU(capacity) => {
-                HashMap::<K, ValueEx<V>>::with_capacity(capacity)
+                HashMap::<K, ValueWithState<V>>::with_capacity(capacity)
             },
-            ExpirationPolicy::None => HashMap::<K, ValueEx<V>>::new(),
+            ExpirationPolicy::None => HashMap::<K, ValueWithState<V>>::new(),
         };
         let mut replica_of: Option<HashMapCache<K, V>> = None;
 
@@ -181,7 +181,7 @@ where
                         }
 
                         // Invalidate cache.
-                        hm.retain(|_k, val_ex| match val_ex.expiration {
+                        hm.retain(|_k, val_with_state| match val_with_state.expiration {
                             Some(exp) => Instant::now() < exp,
                             None => true,
                         });
@@ -195,8 +195,8 @@ where
                                     for _ in 0..n_exceed {
                                         if let Some(lfu_key) = hm
                                             .iter()
-                                            .min_by_key(|(_key, val_ex)| val_ex.call_cnt)
-                                            .map(|(key, _val_ex)| key.clone())
+                                            .min_by_key(|(_key, val_with_state)| val_with_state.call_cnt)
+                                            .map(|(key, _val_with_state)| key.clone())
                                         {
                                             hm.remove(&lfu_key);
                                         }
@@ -210,8 +210,8 @@ where
                                     for _ in 0..n_exceed {
                                         if let Some(lru_key) = hm
                                             .iter()
-                                            .min_by_key(|(_key, val_ex)| val_ex.last_accessed)
-                                            .map(|(key, _val_ex)| key.clone())
+                                            .min_by_key(|(_key, val_with_state)| val_with_state.last_accessed)
+                                            .map(|(key, _val_with_state)| key.clone())
                                         {
                                             hm.remove(&lru_key);
                                         }
@@ -246,10 +246,10 @@ where
                                 }
                                 HashMapCmd::<K, V>::TTL { keys, resp_tx } => {
                                     let ttl = keys.iter().map(|key| {
-                                        hm.get_mut(&key).and_then(|val_ex| {
-                                            val_ex.call_cnt += 1;
-                                            val_ex.last_accessed = Instant::now();
-                                            val_ex.expiration.and_then(|ex| {
+                                        hm.get_mut(&key).and_then(|val_with_state| {
+                                            val_with_state.call_cnt += 1;
+                                            val_with_state.last_accessed = Instant::now();
+                                            val_with_state.expiration.and_then(|ex| {
                                                     ex.checked_duration_since(Instant::now())
                                             })
                                         })
@@ -261,16 +261,16 @@ where
                                 HashMapCmd::<K, V>::GetAll { resp_tx } => {
 
                                     // Clone existing hm into val.
-                                    let val = hm.clone().into_iter().map(|(key, val_ex)| {
-                                        (key, val_ex.val)
+                                    let val = hm.clone().into_iter().map(|(key, val_with_state)| {
+                                        (key, val_with_state.val)
                                     }).collect::<HashMap<K, V>>();
 
                                     // Incr all cnt by 1.
-                                    hm = hm.into_iter().map(|(key, mut val_ex)| {
-                                        val_ex.call_cnt += 1;
-                                        val_ex.last_accessed = Instant::now();
-                                        (key, val_ex)
-                                    }).collect::<HashMap<K, ValueEx<V>>>();
+                                    hm = hm.into_iter().map(|(key, mut val_with_state)| {
+                                        val_with_state.call_cnt += 1;
+                                        val_with_state.last_accessed = Instant::now();
+                                        (key, val_with_state)
+                                    }).collect::<HashMap<K, ValueWithState<V>>>();
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
                                     }
@@ -280,7 +280,7 @@ where
                                 }
                                 HashMapCmd::<K, V>::Remove { keys, resp_tx } => {
                                     let vals = keys.iter().map(|key| {
-                                        hm.remove(&key).and_then(|val_ex| Some(val_ex.val))
+                                        hm.remove(&key).and_then(|val_with_state| Some(val_with_state.val))
                                     }).collect::<Vec<Option<V>>>();
                                     if let Err(_) = resp_tx.send(vals) {
                                         println!("the receiver dropped");
@@ -288,9 +288,9 @@ where
                                 }
                                 HashMapCmd::<K, V>::ContainsKey {keys, resp_tx } => {
                                     let is_contains_keys = keys.iter().map(|key| {
-                                        hm.get_mut(key).and_then(|val_ex| {
-                                            val_ex.call_cnt += 1;
-                                            val_ex.last_accessed = Instant::now();
+                                        hm.get_mut(key).and_then(|val_with_state| {
+                                            val_with_state.call_cnt += 1;
+                                            val_with_state.last_accessed = Instant::now();
                                             Some(())
                                         });
                                         hm.contains_key(&key)
@@ -302,10 +302,10 @@ where
                                 }
                                 HashMapCmd::<K, V>::MGet { keys, resp_tx } => {
                                     let vals = keys.iter().map(|key| {
-                                        hm.get_mut(&key).and_then(|val_ex| {
-                                            val_ex.call_cnt += 1;
-                                            val_ex.last_accessed = Instant::now();
-                                            Some(val_ex.val.clone())
+                                        hm.get_mut(&key).and_then(|val_with_state| {
+                                            val_with_state.call_cnt += 1;
+                                            val_with_state.last_accessed = Instant::now();
+                                            Some(val_with_state.val.clone())
                                         })
                                     }).collect::<Vec<Option<V>>>();
                                     if let Err(_) = resp_tx.send(vals) {
@@ -321,19 +321,19 @@ where
                                             hm.get(&key).map_or(0, |v| v.call_cnt + 1)
                                         };
                                         let last_accessed = Instant::now();
-                                        let val_ex = ValueEx { val, expiration, call_cnt, last_accessed};
+                                        let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed};
                                         if nx.is_some() && nx == Some(true) {
-                                            hm.entry(key).or_insert(val_ex);
+                                            hm.entry(key).or_insert(val_with_state);
                                         } else {
-                                            hm.insert(key, val_ex);
+                                            hm.insert(key, val_with_state);
                                         }
                                     }
                                 }
                                 HashMapCmd::<K, V>::Get { key, resp_tx } => {
-                                    let val = hm.get_mut(&key).and_then(|val_ex| {
-                                        val_ex.call_cnt += 1;
-                                        val_ex.last_accessed = Instant::now();
-                                        Some(val_ex.val.clone())
+                                    let val = hm.get_mut(&key).and_then(|val_with_state| {
+                                        val_with_state.call_cnt += 1;
+                                        val_with_state.last_accessed = Instant::now();
+                                        Some(val_with_state.val.clone())
                                     });
 
                                     if let Err(_) = resp_tx.send(val) {
@@ -348,8 +348,8 @@ where
                                         hm.get(&key).map_or(0, |v| v.call_cnt + 1)
                                     };
                                     let last_accessed = Instant::now();
-                                    let val_ex = ValueEx { val, expiration, call_cnt, last_accessed };
-                                    hm.insert(key, val_ex);
+                                    let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
+                                    hm.insert(key, val_with_state);
                                 }
                             }
                         }

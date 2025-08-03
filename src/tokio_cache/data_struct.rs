@@ -8,7 +8,7 @@ pub struct HashSetState {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ValueEx<V> {
+pub struct ValueWithState<V> {
     pub val: V,
     pub expiration: Option<Instant>,
     pub call_cnt: u64,
