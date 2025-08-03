@@ -120,7 +120,7 @@ where
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -147,7 +147,7 @@ where
         &self,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let node = self.get_node(val.clone())?;
         node.tx
@@ -260,7 +260,7 @@ where
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -288,7 +288,7 @@ where
         &self,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let node = self.get_node(val.clone())?;
         node.tx
