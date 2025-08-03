@@ -153,7 +153,7 @@ where
                         }
 
                         // Invalidate cache.
-                        hm.retain(|_k, val_ex| match val_ex.expiration {
+                        hm.retain(|_k, state| match state.expiration {
                             Some(exp) => Instant::now() < exp,
                             None => true,
                         });
@@ -203,6 +203,7 @@ where
                                 }
                                 HashSetCmd::<V>::IsReplica { resp_tx } => {
                                     let is_replica = replica_of.is_some();
+
                                     if let Err(_) = resp_tx.send(is_replica) {
                                         println!("the receiver dropped");
                                     }
@@ -212,6 +213,7 @@ where
                                 }
                                 HashSetCmd::<V>::GetAllRaw { resp_tx } => {
                                     let val = hm.clone();
+
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
                                     }
@@ -226,6 +228,7 @@ where
                                             })
                                         })
                                     }).collect::<Vec<Option<Duration>>>();
+
                                     if let Err(_) = resp_tx.send(ttl) {
                                         println!("the receiver dropped");
                                     }
@@ -236,6 +239,7 @@ where
                                         state.last_accessed = Instant::now();
                                         val
                                     }).collect::<HashSet<V>>();
+
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
                                     }
@@ -244,24 +248,32 @@ where
                                     hm.clear();
                                 }
                                 HashSetCmd::<V>::Remove { vals, resp_tx } => {
-                                    let vals = vals.iter().map(|val| {
-                                        let is_contains_key = hm.contains_key(&val);
-                                        hm.remove(&val);
-                                        is_contains_key
+                                    let is_remove = vals.iter().map(|val| {
+                                        match hm.remove(&val) {
+                                            Some(_) => true,
+                                            None => false,
+                                        }
                                     }).collect::<Vec<bool>>();
-                                    if let Err(_) = resp_tx.send(vals) {
+                                    if let Err(_) = resp_tx.send(is_remove) {
                                         println!("the receiver dropped");
                                     }
                                 }
                                 HashSetCmd::<V>::Contains { vals, resp_tx } => {
                                     let is_contains_vals = vals.iter().map(|val| {
-                                        hm.get_mut(val).and_then(|val_ex| {
-                                            val_ex.call_cnt += 1;
-                                            val_ex.last_accessed = Instant::now();
+
+                                        // Get 'state' with 'val'.
+                                        hm.get_mut(val).and_then(|state| {
+
+                                            // incr 'call_cnt' by 1 and update 'last_accessed'.
+                                            state.call_cnt += 1;
+                                            state.last_accessed = Instant::now();
+
                                             Some(())
                                         });
+
                                         hm.contains_key(&val)
                                     }).collect::<Vec<bool>>();
+
                                     if let Err(_) = resp_tx.send(is_contains_vals) {
                                         println!("the receiver dropped");
                                     }
@@ -275,11 +287,11 @@ where
                                             hm.get(&val).map_or(0, |v| v.call_cnt + 1)
                                         };
                                         let last_accessed = Instant::now();
-                                        let val_ex = HashSetState { expiration, call_cnt, last_accessed};
+                                        let state = HashSetState { expiration, call_cnt, last_accessed};
                                         if nx.is_some() && nx == Some(true) {
-                                            hm.entry(val).or_insert(val_ex);
+                                            hm.entry(val).or_insert(state);
                                         } else {
-                                            hm.insert(val, val_ex);
+                                            hm.insert(val, state);
                                         }
                                     }
                                 }
@@ -291,8 +303,8 @@ where
                                         hm.get(&val).map_or(0, |v| v.call_cnt + 1)
                                     };
                                     let last_accessed = Instant::now();
-                                    let val_ex = HashSetState { expiration, call_cnt, last_accessed };
-                                    hm.insert(val, val_ex);
+                                    let state = HashSetState { expiration, call_cnt, last_accessed };
+                                    hm.insert(val, state);
                                 }
                             }
                         }
@@ -300,6 +312,7 @@ where
                 }
             }
         });
+        
         Self { tx }
     }
 }
