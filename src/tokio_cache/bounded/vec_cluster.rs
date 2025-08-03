@@ -32,11 +32,13 @@ where
             node.tx
                 .try_send(ttl_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
+            // Cannot use extend since, results from other nodes might return empty vec.
+            match resp_rx.await.map_err(|_| return TokioActorCacheError::Receive)?.first() {
+                Some(ttl) => {
+                    res.push(ttl.clone());
+                },
+                None => res.push(None),
+            }
         }
 
         Ok(res)
@@ -116,7 +118,7 @@ where
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -143,7 +145,7 @@ where
         &self,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let node = self.get_node(val.clone())?;
         let push_cmd = VecCmd::Push { val, ex, nx };
@@ -166,11 +168,13 @@ where
                 .send(ttl_cmd)
                 .await
                 .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
+            // Cannot use extend since, results from other nodes might return empty vec.
+            match resp_rx.await.map_err(|_| return TokioActorCacheError::Receive)?.first() {
+                Some(ttl) => {
+                    res.push(ttl.clone());
+                },
+                None => res.push(None),
+            }
         }
 
         Ok(res)
@@ -254,7 +258,7 @@ where
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -282,7 +286,7 @@ where
         &self,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let node = self.get_node(val.clone())?;
         let push_cmd = VecCmd::Push { val, ex, nx };
