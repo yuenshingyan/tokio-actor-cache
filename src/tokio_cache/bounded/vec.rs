@@ -308,22 +308,19 @@ where
                                     }
                                 }
                                 VecCmd::<V>::TTL { vals, resp_tx } => {
-                                    let mut ttl = Vec::with_capacity(vals.len());
-                                    for val in &vals {
+                                    let ttl = vals.iter().map(|val| {
                                         for val_with_state in &mut vec {
                                             if val_with_state.val == *val {
                                                 val_with_state.call_cnt += 1;
                                                 val_with_state.last_accessed = Instant::now();
-                                                ttl.push(
-                                                    val_with_state.expiration.and_then(|ex| {
-                                                        ex.checked_duration_since(Instant::now())
-                                                    })
-                                                );
-                                            } else {
-                                                ttl.push(None);
+                                                return val_with_state.expiration.and_then(|ex| {
+                                                    ex.checked_duration_since(Instant::now())
+                                                })
                                             }
                                         }
-                                    }
+
+                                        None
+                                    }).collect::<Vec<Option<Duration>>>();
 
                                     if let Err(_) = resp_tx.send(ttl) {
                                         println!("the receiver dropped");

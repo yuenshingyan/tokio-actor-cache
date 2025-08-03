@@ -205,22 +205,19 @@ where
                                     }
                                 }
                                 VecCmd::<V>::TTL { vals, resp_tx } => {
-                                    let mut ttl = Vec::with_capacity(vals.len());
-                                    for val in &vals {
+                                    let ttl = vals.iter().map(|val| {
                                         for val_with_state in &mut vec {
                                             if val_with_state.val == *val {
                                                 val_with_state.call_cnt += 1;
                                                 val_with_state.last_accessed = Instant::now();
-                                                ttl.push(
-                                                    val_with_state.expiration.and_then(|ex| {
-                                                        ex.checked_duration_since(Instant::now())
-                                                    })
-                                                );
-                                            } else {
-                                                ttl.push(None);
+                                                return val_with_state.expiration.and_then(|ex| {
+                                                    ex.checked_duration_since(Instant::now())
+                                                })
                                             }
                                         }
-                                    }
+
+                                        None
+                                    }).collect::<Vec<Option<Duration>>>();
 
                                     if let Err(_) = resp_tx.send(ttl) {
                                         println!("the receiver dropped");
@@ -275,6 +272,7 @@ where
                                     }
                                 }
                                 VecCmd::<V>::MPush { vals, ex, nx } => {
+                                    // TODO: make other for loop => iter??
                                     for ((val, ex), nx) in vals.into_iter().zip(ex).zip(nx) {
                                         let expiration = ex.and_then(|d| Some(Instant::now() + d));
                                         let last_accessed = Instant::now();
@@ -331,28 +329,6 @@ where
                                         },
                                         _ => (),
                                     }
-
-                                    // let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    // let call_cnt = if nx == Some(true) {
-                                    //     0
-                                    // } else {
-                                    //     let mut cnt = 0;
-                                    //     for val_with_state in &vec {
-                                    //         if val_with_state.val == val {
-                                    //             cnt = val_with_state.call_cnt + 1;
-                                    //             break;
-                                    //         }
-                                    //     }
-
-                                    //     cnt
-                                    // };
-                                    // let last_accessed = Instant::now();
-                                    // let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
-                                    // if nx.is_some() && nx == Some(true) && !vec.contains(&val_with_state) {
-                                    //     vec.push(val_with_state);
-                                    // } else {
-                                    //     vec.push(val_with_state);
-                                    // }
                                 }
                             }
                         }

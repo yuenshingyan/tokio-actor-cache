@@ -32,13 +32,11 @@ where
             node.tx
                 .send(ttl_cmd)
                 .map_err(|_| TokioActorCacheError::Send)?;
-            // Cannot use .extend(.) method since, result from other nodes might be empty vec.
-            match resp_rx.await.map_err(|_| return TokioActorCacheError::Receive)?.first() {
-                Some(ttl) => {
-                    res.push(ttl.clone());
-                },
-                None => res.push(None),
-            }
+            res.extend(
+                resp_rx
+                    .await
+                    .map_err(|_| return TokioActorCacheError::Receive)?,
+            );
         }
         Ok(res)
     }
