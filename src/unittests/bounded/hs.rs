@@ -2,12 +2,13 @@
 mod tests {
     use std::{collections::HashSet, time::Duration};
 
-    use crate::tokio_cache::bounded::hs::HashSetCache;
+    use crate::tokio_cache::{bounded::hs::HashSetCache, expiration_policy::ExpirationPolicy};
 
     #[tokio::test]
     async fn test_try_replicated_data_persist() {
-        let hm_cluster1 = HashSetCache::<i32>::new(32).await;
-        let hm_cluster2 = HashSetCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = HashSetCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = HashSetCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.insert(1, None, None).await.unwrap();
@@ -27,8 +28,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_stop_replicating() {
-        let hm_cluster1 = HashSetCache::<i32>::new(32).await;
-        let hm_cluster2 = HashSetCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = HashSetCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = HashSetCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.insert(1, None, None).await.unwrap();
@@ -56,8 +58,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_replicate() {
-        let hm_cluster1 = HashSetCache::<i32>::new(32).await;
-        let hm_cluster2 = HashSetCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = HashSetCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = HashSetCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.insert(1, None, None).await.unwrap();
@@ -73,8 +76,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_replicated_data_persist() {
-        let hm_cluster1 = HashSetCache::<i32>::new(32).await;
-        let hm_cluster2 = HashSetCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = HashSetCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = HashSetCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.insert(1, None, None).await.unwrap();
@@ -94,8 +98,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_stop_replicating() {
-        let hm_cluster1 = HashSetCache::<i32>::new(32).await;
-        let hm_cluster2 = HashSetCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = HashSetCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = HashSetCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.insert(1, None, None).await.unwrap();
@@ -123,8 +128,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_replicate() {
-        let hm_cluster1 = HashSetCache::<i32>::new(32).await;
-        let hm_cluster2 = HashSetCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = HashSetCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = HashSetCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.insert(1, None, None).await.unwrap();
@@ -140,7 +146,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_ttl() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .insert(10, Some(Duration::from_secs(1)), None)
             .await
@@ -153,7 +160,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_clear() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.insert(10, None, None).await.unwrap();
         hs_cache.insert(20, None, None).await.unwrap();
         hs_cache.insert(30, None, None).await.unwrap();
@@ -166,7 +174,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_remove() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -177,7 +186,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_contains() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.insert(10, None, None).await.unwrap();
         let vals = hs_cache.try_contains(&[10]).await.unwrap();
         assert_eq!(vals, vec![true]);
@@ -185,7 +195,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_minsert_ex() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .try_minsert(
                 &[10, 20, 30],
@@ -205,7 +216,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_minsert() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .try_minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -216,7 +228,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_insert_ex() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.try_insert(10, None, None).await.unwrap();
         hs_cache
             .try_insert(20, Some(Duration::from_secs(1)), None)
@@ -229,7 +242,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_insert() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.try_insert(10, None, None).await.unwrap();
         hs_cache.try_insert(20, None, None).await.unwrap();
         hs_cache.try_insert(30, None, None).await.unwrap();
@@ -239,7 +253,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_ttl() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .insert(10, Some(Duration::from_secs(1)), None)
             .await
@@ -252,7 +267,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.insert(10, None, None).await.unwrap();
         hs_cache.insert(20, None, None).await.unwrap();
         hs_cache.insert(30, None, None).await.unwrap();
@@ -265,7 +281,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -276,7 +293,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.insert(10, None, None).await.unwrap();
         let vals = hs_cache.contains(&[10]).await.unwrap();
         assert_eq!(vals, vec![true]);
@@ -284,7 +302,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_ex() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .minsert(
                 &[10, 20, 30],
@@ -304,7 +323,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache
             .minsert(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -315,7 +335,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_ex() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.insert(10, None, None).await.unwrap();
         hs_cache
             .insert(20, Some(Duration::from_secs(1)), None)
@@ -328,7 +349,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert() {
-        let hs_cache = HashSetCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hs_cache = HashSetCache::new(expiration_policy, 32).await;
         hs_cache.insert(10, None, None).await.unwrap();
         hs_cache.insert(20, None, None).await.unwrap();
         hs_cache.insert(30, None, None).await.unwrap();

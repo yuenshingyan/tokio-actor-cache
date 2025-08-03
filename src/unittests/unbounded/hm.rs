@@ -1,53 +1,78 @@
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::{collections::HashMap, time::Duration};
 
-    use crate::tokio_cache::unbounded::hm::HashMapCache;
+    use crate::tokio_cache::{expiration_policy::ExpirationPolicy, unbounded::hm::HashMapCache};
+
+    #[tokio::test]
+    async fn test_expiration_policy_lru() {
+        let expiration_policy = ExpirationPolicy::LRU(1);
+        let hm_cache = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        hm_cache.insert("a", 1, None, None).await.unwrap();
+        hm_cache.insert("b", 1, None, None).await.unwrap();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        let hm = hm_cache.get_all().await.unwrap();
+        assert_eq!(HashMap::from([("b", 1)]), hm);
+    }
+
+    #[tokio::test]
+    async fn test_expiration_policy_lfu() {
+        let expiration_policy = ExpirationPolicy::LFU(1);
+        let hm_cache = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        hm_cache.insert("a", 1, None, None).await.unwrap();
+        hm_cache.insert("a", 1, None, None).await.unwrap();
+        hm_cache.insert("b", 1, None, None).await.unwrap();
+        tokio::time::sleep(Duration::from_secs(1)).await;
+        let hm = hm_cache.get_all().await.unwrap();
+        assert_eq!(HashMap::from([("a", 1)]), hm);
+    }
 
     #[tokio::test]
     async fn test_replicated_data_persist() {
-        let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
-        let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
-        hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+        let expiration_policy = ExpirationPolicy::None;
+        let hm1 = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        let hm2 = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        hm2.replicate(&hm1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm1.insert("a", 1, None, None).await.unwrap();
 
-        let val_1 = hm_cluster1.get("a").await.unwrap();
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        hm_cluster2.stop_replicating().await.unwrap();
+        let val_1 = hm1.get("a").await.unwrap();
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let val_2 = hm_cluster2.get("a").await.unwrap();
+        hm2.stop_replicating().await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let val_2 = hm2.get("a").await.unwrap();
 
         assert_eq!(val_1, val_2);
     }
 
     #[tokio::test]
     async fn test_stop_replicating() {
-        let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
-        let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
-        hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+        let expiration_policy = ExpirationPolicy::None;
+        let hm1 = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        let hm2 = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        hm2.replicate(&hm1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm1.insert("a", 1, None, None).await.unwrap();
 
-        let val_1 = hm_cluster1.get("a").await.unwrap();
-
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        hm_cluster2.stop_replicating().await.unwrap();
+        let val_1 = hm1.get("a").await.unwrap();
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let val_2 = hm_cluster2.get("a").await.unwrap();
+        hm2.stop_replicating().await.unwrap();
+
+        tokio::time::sleep(Duration::from_secs(1)).await;
+
+        let val_2 = hm2.get("a").await.unwrap();
 
         assert_eq!(val_1, val_2);
 
-        hm_cluster1.insert("a", 10, None, None).await.unwrap();
+        hm1.insert("a", 10, None, None).await.unwrap();
 
-        let val_1 = hm_cluster1.get("a").await.unwrap();
+        let val_1 = hm1.get("a").await.unwrap();
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -56,24 +81,26 @@ mod tests {
 
     #[tokio::test]
     async fn test_replicate() {
-        let hm_cluster1 = HashMapCache::<&str, i32>::new().await;
-        let hm_cluster2 = HashMapCache::<&str, i32>::new().await;
-        hm_cluster2.replicate(&hm_cluster1).await.unwrap();
+        let expiration_policy = ExpirationPolicy::None;
+        let hm1 = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        let hm2 = HashMapCache::<&str, i32>::new(expiration_policy).await;
+        hm2.replicate(&hm1).await.unwrap();
 
-        hm_cluster1.insert("a", 1, None, None).await.unwrap();
+        hm1.insert("a", 1, None, None).await.unwrap();
 
-        let val_1 = hm_cluster1.get("a").await.unwrap();
+        let val_1 = hm1.get("a").await.unwrap();
 
         tokio::time::sleep(Duration::from_secs(1)).await;
 
-        let val_2 = hm_cluster2.get("a").await.unwrap();
+        let val_2 = hm2.get("a").await.unwrap();
 
         assert_eq!(val_1, val_2);
     }
 
     #[tokio::test]
     async fn test_ttl() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache
             .insert("a", 10, Some(Duration::from_secs(1)), None)
             .await
@@ -85,7 +112,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache.insert("b", 12, None, None).await.unwrap();
         hm_cache.insert("c", 20, None, None).await.unwrap();
@@ -98,7 +126,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mget() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -114,7 +143,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -130,7 +160,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains_keys() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -146,7 +177,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_nx_if_not_exists() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache
             .minsert(
@@ -163,7 +195,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_nx_if_exists() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache
             .minsert(
@@ -180,7 +213,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_ex() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -205,7 +239,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache
             .minsert(
                 &["a", "b", "c"],
@@ -225,7 +260,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_minsert_inconsistent_len() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         let res = hm_cache
             .minsert(
                 &["a", "b"],
@@ -239,7 +275,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_nx_if_not_exists() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache.insert("a", 20, None, None).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
@@ -248,7 +285,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_nx_if_exists() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache.insert("a", 20, None, Some(true)).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
@@ -257,7 +295,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert_ex() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         hm_cache
             .insert("b", 20, Some(Duration::from_secs(1)), None)
@@ -272,7 +311,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_insert() {
-        let hm_cache = HashMapCache::new().await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cache = HashMapCache::new(expiration_policy).await;
         hm_cache.insert("a", 10, None, None).await.unwrap();
         let val = hm_cache.get("a").await.unwrap();
         assert_eq!(val, Some(10));

@@ -3,12 +3,13 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::tokio_cache::bounded::vec::VecCache;
+    use crate::tokio_cache::{bounded::vec::VecCache, expiration_policy::ExpirationPolicy};
 
     #[tokio::test]
     async fn test_try_replicated_data_persist() {
-        let hm_cluster1 = VecCache::<i32>::new(32).await;
-        let hm_cluster2 = VecCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = VecCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = VecCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.push(1, None, None).await.unwrap();
@@ -28,8 +29,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_stop_replicating() {
-        let hm_cluster1 = VecCache::<i32>::new(32).await;
-        let hm_cluster2 = VecCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = VecCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = VecCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.push(1, None, None).await.unwrap();
@@ -57,8 +59,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_replicate() {
-        let hm_cluster1 = VecCache::<i32>::new(32).await;
-        let hm_cluster2 = VecCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = VecCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = VecCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.try_replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.push(1, None, None).await.unwrap();
@@ -74,8 +77,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_replicated_data_persist() {
-        let hm_cluster1 = VecCache::<i32>::new(32).await;
-        let hm_cluster2 = VecCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = VecCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = VecCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.push(1, None, None).await.unwrap();
@@ -95,8 +99,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_stop_replicating() {
-        let hm_cluster1 = VecCache::<i32>::new(32).await;
-        let hm_cluster2 = VecCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = VecCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = VecCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.push(1, None, None).await.unwrap();
@@ -124,8 +129,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_replicate() {
-        let hm_cluster1 = VecCache::<i32>::new(32).await;
-        let hm_cluster2 = VecCache::<i32>::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let hm_cluster1 = VecCache::<i32>::new(expiration_policy, 32).await;
+        let hm_cluster2 = VecCache::<i32>::new(expiration_policy, 32).await;
         hm_cluster2.replicate(&hm_cluster1).await.unwrap();
 
         hm_cluster1.push(1, None, None).await.unwrap();
@@ -141,7 +147,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_ttl() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache
             .push(10, Some(Duration::from_secs(1)), None)
             .await
@@ -153,7 +160,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_clear() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         vec_cache.push(20, None, None).await.unwrap();
         vec_cache.push(30, None, None).await.unwrap();
@@ -166,7 +174,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_remove() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         let val = vec_cache.try_remove(&[10, 20]).await.unwrap();
         assert_eq!(val, vec![true, false]);
@@ -174,7 +183,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_contains() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         vec_cache.push(20, None, None).await.unwrap();
         let val = vec_cache.try_contains(&[10, 20, 30]).await.unwrap();
@@ -183,7 +193,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_mpush_ex() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache
             .try_mpush(
                 &[10, 20, 30],
@@ -203,7 +214,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_mpush() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache
             .try_mpush(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -214,7 +226,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_push_ex() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.try_push(10, None, None).await.unwrap();
         vec_cache
             .try_push(20, Some(Duration::from_secs(1)), None)
@@ -227,7 +240,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_try_push() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.try_push(10, None, None).await.unwrap();
         vec_cache.try_push(20, None, None).await.unwrap();
         vec_cache.try_push(30, None, None).await.unwrap();
@@ -237,7 +251,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_ttl() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache
             .push(10, Some(Duration::from_secs(1)), None)
             .await
@@ -249,7 +264,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_clear() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         vec_cache.push(20, None, None).await.unwrap();
         vec_cache.push(30, None, None).await.unwrap();
@@ -262,7 +278,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_remove() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         let val = vec_cache.remove(&[10, 20]).await.unwrap();
         assert_eq!(val, vec![true, false]);
@@ -270,7 +287,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_contains() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         vec_cache.push(20, None, None).await.unwrap();
         let val = vec_cache.contains(&[10, 20, 30]).await.unwrap();
@@ -279,7 +297,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mpush_ex() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache
             .mpush(
                 &[10, 20, 30],
@@ -299,7 +318,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_mpush() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache
             .mpush(&[10, 20, 30], &[None, None, None], &[None, None, None])
             .await
@@ -310,7 +330,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_push_ex() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         vec_cache
             .push(20, Some(Duration::from_secs(1)), None)
@@ -323,7 +344,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_push() {
-        let vec_cache = VecCache::new(32).await;
+        let expiration_policy = ExpirationPolicy::None;
+        let vec_cache = VecCache::new(expiration_policy, 32).await;
         vec_cache.push(10, None, None).await.unwrap();
         vec_cache.push(20, None, None).await.unwrap();
         vec_cache.push(30, None, None).await.unwrap();

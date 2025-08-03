@@ -1,477 +1,16 @@
 use std::collections::HashMap;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::time::Duration;
 
-use crate::tokio_cache::compute::hash_id;
+use crate::tokio_cache::bounded::cmd::HashMapCmd;
 use crate::tokio_cache::data_struct::ValueEx;
 use crate::tokio_cache::error::TokioActorCacheError;
+use crate::tokio_cache::expiration_policy::ExpirationPolicy;
 
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::{Instant, interval};
-
-#[derive(Debug)]
-pub enum HashMapCmd<K, V> {
-    StopReplicating,
-    IsReplica {
-        resp_tx: oneshot::Sender<bool>,
-    },
-    Replicate {
-        master: HashMapCache<K, V>,
-    },
-    GetAllRaw {
-        resp_tx: oneshot::Sender<HashMap<K, ValueEx<V>>>,
-    },
-    TTL {
-        keys: Vec<K>,
-        resp_tx: oneshot::Sender<Vec<Option<Duration>>>,
-    },
-    GetAll {
-        resp_tx: oneshot::Sender<HashMap<K, V>>,
-    },
-    Clear,
-    Remove {
-        keys: Vec<K>,
-        resp_tx: oneshot::Sender<Vec<Option<V>>>,
-    },
-    ContainsKey {
-        keys: Vec<K>,
-        resp_tx: oneshot::Sender<Vec<bool>>,
-    },
-    MGet {
-        keys: Vec<K>,
-        resp_tx: oneshot::Sender<Vec<Option<V>>>,
-    },
-    MInsert {
-        keys: Vec<K>,
-        vals: Vec<V>,
-        ex: Vec<Option<Duration>>,
-        nx: Vec<Option<bool>>,
-    },
-    Get {
-        key: K,
-        resp_tx: oneshot::Sender<Option<V>>,
-    },
-    Insert {
-        key: K,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    },
-}
-
-#[derive(Debug, Clone)]
-pub struct HashMapCacheCluster<K, V> {
-    pub nodes: HashMap<u64, HashMapCache<K, V>>,
-}
-
-impl<K, V> HashMapCacheCluster<K, V>
-where
-    K: Clone + Debug + Eq + Hash + Send + 'static + Display,
-    V: Clone + Debug + Eq + Hash + Send + 'static,
-{
-    pub async fn try_ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let ttl_cmd = HashMapCmd::TTL {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(ttl_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-            let r = resp_rx
-                .await
-                .map_err(|_| return TokioActorCacheError::Receive)?;
-            res.extend(r);
-        }
-
-        Ok(res)
-    }
-
-    pub async fn try_get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
-        let mut res = HashMap::new();
-        for node in self.nodes.values() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let get_all_cmd = HashMapCmd::GetAll { resp_tx };
-            node.tx
-                .try_send(get_all_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn try_clear(&self) -> Result<(), TokioActorCacheError> {
-        for node in self.nodes.values() {
-            let clear_cmd = HashMapCmd::Clear;
-            node.tx
-                .try_send(clear_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?
-        }
-
-        Ok(())
-    }
-
-    pub async fn try_remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let remove_cmd = HashMapCmd::Remove {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(remove_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn try_contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let contains_key_cmd = HashMapCmd::ContainsKey {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(contains_key_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn try_mget(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let mget_cmd = HashMapCmd::MGet {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(mget_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn try_minsert(
-        &self,
-        keys: &[K],
-        vals: &[V],
-        ex: &[Option<Duration>],
-        nx: &[Option<bool>],
-    ) -> Result<(), TokioActorCacheError> {
-        if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen);
-        }
-
-        let keys = keys.to_vec();
-        let vals = vals.to_vec();
-        let ex = ex.to_vec();
-        let nx = nx.to_vec();
-
-        for (key, val) in keys.into_iter().zip(vals).clone() {
-            let minsert_cmd = HashMapCmd::MInsert {
-                keys: vec![key.clone()],
-                vals: vec![val.clone()],
-                ex: ex.clone(),
-                nx: nx.clone(),
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .try_send(minsert_cmd)
-                .map_err(|_| TokioActorCacheError::Send)?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn try_get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let get_cmd = HashMapCmd::Get {
-            key: key.clone(),
-            resp_tx,
-        };
-        let node = self.get_node(key)?;
-        node.tx
-            .try_send(get_cmd)
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn try_insert(
-        &self,
-        key: K,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    ) -> Result<(), TokioActorCacheError> {
-        let insert_cmd = HashMapCmd::Insert {
-            key: key.clone(),
-            val,
-            ex,
-            nx,
-        };
-        let node = self.get_node(key)?;
-        node.tx
-            .try_send(insert_cmd)
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn ttl(&self, keys: &[K]) -> Result<Vec<Option<Duration>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let ttl_cmd = HashMapCmd::TTL {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(ttl_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            let r = resp_rx
-                .await
-                .map_err(|_| return TokioActorCacheError::Receive)?;
-            res.extend(r);
-        }
-
-        Ok(res)
-    }
-
-    pub async fn get_all(&self) -> Result<HashMap<K, V>, TokioActorCacheError> {
-        let mut res = HashMap::new();
-        for node in self.nodes.values() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let get_all_cmd = HashMapCmd::GetAll { resp_tx };
-            node.tx
-                .send(get_all_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn clear(&self) -> Result<(), TokioActorCacheError> {
-        for node in self.nodes.values() {
-            let clear_cmd = HashMapCmd::Clear;
-            node.tx
-                .send(clear_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?
-        }
-
-        Ok(())
-    }
-
-    pub async fn remove(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let remove_cmd = HashMapCmd::Remove {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(remove_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn contains_key(&self, keys: &[K]) -> Result<Vec<bool>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let contains_key_cmd = HashMapCmd::ContainsKey {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(contains_key_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn mget(&self, keys: &[K]) -> Result<Vec<Option<V>>, TokioActorCacheError> {
-        let keys = keys.to_vec();
-        let mut res = Vec::new();
-        for key in keys.clone() {
-            let (resp_tx, resp_rx) = oneshot::channel();
-            let mget_cmd = HashMapCmd::MGet {
-                keys: vec![key.clone()],
-                resp_tx,
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(mget_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-            res.extend(
-                resp_rx
-                    .await
-                    .map_err(|_| return TokioActorCacheError::Receive)?,
-            );
-        }
-
-        Ok(res)
-    }
-
-    pub async fn minsert(
-        &self,
-        keys: &[K],
-        vals: &[V],
-        ex: &[Option<Duration>],
-        nx: &[Option<bool>],
-    ) -> Result<(), TokioActorCacheError> {
-        if keys.len() != vals.len() || vals.len() != ex.len() || ex.len() != nx.len() {
-            return Err(TokioActorCacheError::InconsistentLen);
-        }
-
-        let keys = keys.to_vec();
-        let vals = vals.to_vec();
-        let ex = ex.to_vec();
-        let nx = nx.to_vec();
-
-        for (key, val) in keys.into_iter().zip(vals).clone() {
-            let minsert_cmd = HashMapCmd::MInsert {
-                keys: vec![key.clone()],
-                vals: vec![val.clone()],
-                ex: ex.clone(),
-                nx: nx.clone(),
-            };
-            let node = self.get_node(key)?;
-            node.tx
-                .send(minsert_cmd)
-                .await
-                .map_err(|_| TokioActorCacheError::Send)?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn get(&self, key: K) -> Result<Option<V>, TokioActorCacheError> {
-        let (resp_tx, resp_rx) = oneshot::channel();
-        let get_cmd = HashMapCmd::Get {
-            key: key.clone(),
-            resp_tx,
-        };
-        let node = self.get_node(key)?;
-        node.tx
-            .send(get_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)?;
-        resp_rx
-            .await
-            .map_err(|_| return TokioActorCacheError::Receive)
-    }
-
-    pub async fn insert(
-        &self,
-        key: K,
-        val: V,
-        ex: Option<Duration>,
-        nx: Option<bool>,
-    ) -> Result<(), TokioActorCacheError> {
-        let insert_cmd = HashMapCmd::Insert {
-            key: key.clone(),
-            val,
-            ex,
-            nx,
-        };
-        let node = self.get_node(key)?;
-        node.tx
-            .send(insert_cmd)
-            .await
-            .map_err(|_| TokioActorCacheError::Send)
-    }
-
-    pub async fn new(buffer: usize, n_node: u64) -> Self {
-        let mut nodes = HashMap::new();
-        for i in 0..n_node {
-            let vec_cache = HashMapCache::<K, V>::new(buffer).await;
-            nodes.insert(i, vec_cache);
-        }
-        Self { nodes }
-    }
-
-    fn get_node(&self, key: K) -> Result<HashMapCache<K, V>, TokioActorCacheError> {
-        let key_str = format!("{}", key);
-        let h_id = hash_id(&key_str, self.nodes.len() as u16) as u64;
-        match self.nodes.get(&h_id) {
-            Some(n) => Ok(n.clone()),
-            None => return Err(TokioActorCacheError::NodeNotExists),
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct HashMapCache<K, V> {
@@ -744,12 +283,17 @@ where
             .map_err(|_| TokioActorCacheError::Send)
     }
 
-    pub async fn new(buffer: usize) -> Self
+    pub async fn new(expiration_policy: ExpirationPolicy, buffer: usize) -> Self
     where
         K: Debug + Clone + Eq + Hash + Send + 'static,
         V: Debug + Clone + Eq + Hash + Send + 'static,
     {
-        let mut hm = HashMap::<K, ValueEx<V>>::new();
+        let mut hm = match expiration_policy {
+            ExpirationPolicy::LFU(capacity) | ExpirationPolicy::LRU(capacity) => {
+                HashMap::<K, ValueEx<V>>::with_capacity(capacity)
+            },
+            ExpirationPolicy::None => HashMap::<K, ValueEx<V>>::new(),
+        };
         let mut replica_of: Option<HashMapCache<K, V>> = None;
 
         let (tx, mut rx) = mpsc::channel(buffer);
@@ -778,6 +322,35 @@ where
                             Some(exp) => Instant::now() < exp,
                             None => true,
                         });
+
+                        // Invalidate cache according to expiration policy.
+                        match expiration_policy {
+                            ExpirationPolicy::LFU(capacity) => {
+                                if hm.len() > capacity {
+                                     // Find the key with the minimum call_cnt (least frequently used).
+                                    if let Some(lfu_key) = hm
+                                        .iter()
+                                        .min_by_key(|(_key, val_ex)| val_ex.call_cnt)
+                                        .map(|(key, _val_ex)| key.clone())
+                                    {
+                                        hm.remove(&lfu_key);
+                                    }
+                                }
+                            },
+                            ExpirationPolicy::LRU(capacity) => {
+                                if hm.len() > capacity {
+                                    // Find the key with the minimum last_accessed (least recently used).
+                                    if let Some(lru_key) = hm
+                                        .iter()
+                                        .min_by_key(|(_key, val_ex)| val_ex.last_accessed)
+                                        .map(|(key, _val_ex)| key.clone())
+                                    {
+                                        hm.remove(&lru_key);
+                                    }
+                                }
+                            },
+                            ExpirationPolicy::None => (),
+                        };
                     }
 
                     // Handle commands.
@@ -804,7 +377,9 @@ where
                                 }
                                 HashMapCmd::<K, V>::TTL { keys, resp_tx } => {
                                     let ttl = keys.iter().map(|key| {
-                                        hm.get(&key).and_then(|val_ex| {
+                                        hm.get_mut(&key).and_then(|val_ex| {
+                                            val_ex.call_cnt += 1;
+                                            val_ex.last_accessed = Instant::now();
                                             val_ex.expiration.and_then(|ex| {
                                                     ex.checked_duration_since(Instant::now())
                                             })
@@ -815,7 +390,19 @@ where
                                     }
                                 }
                                 HashMapCmd::<K, V>::GetAll { resp_tx } => {
-                                    let val = hm.clone().into_iter().map(|(key, val_ex)| (key, val_ex.val)).collect::<HashMap<K, V>>();
+
+                                    // Clone existing hm into val.
+                                    let val = hm.clone().into_iter().map(|(key, val_ex)| {
+                                        (key, val_ex.val)
+                                    }).collect::<HashMap<K, V>>();
+                                    
+                                    // Incr all cnt by 1.
+                                    hm = hm.into_iter().map(|(key, mut val_ex)| {
+                                        val_ex.call_cnt += 1;
+                                        val_ex.last_accessed = Instant::now();
+                                        (key, val_ex)
+                                    }).collect::<HashMap<K, ValueEx<V>>>();
+                                    
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
                                     }
@@ -841,7 +428,11 @@ where
                                 }
                                 HashMapCmd::<K, V>::MGet { keys, resp_tx } => {
                                     let vals = keys.iter().map(|key| {
-                                        hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()))
+                                        hm.get_mut(&key).and_then(|val_ex| {
+                                            val_ex.call_cnt += 1;
+                                            val_ex.last_accessed = Instant::now();
+                                            Some(val_ex.val.clone())
+                                        })
                                     }).collect::<Vec<Option<V>>>();
                                     if let Err(_) = resp_tx.send(vals) {
                                         println!("the receiver dropped");
@@ -850,7 +441,13 @@ where
                                 HashMapCmd::<K, V>::MInsert { keys, vals, ex, nx } => {
                                     for (((key, val), ex), nx) in keys.into_iter().zip(vals).zip(ex).zip(nx) {
                                         let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                        let val_ex = ValueEx { val, expiration };
+                                        let call_cnt = if nx == Some(true) {
+                                            0
+                                        } else {
+                                            hm.get(&key).map_or(0, |v| v.call_cnt + 1)
+                                        };
+                                        let last_accessed = Instant::now();
+                                        let val_ex = ValueEx { val, expiration, call_cnt, last_accessed };
                                         if nx.is_some() && nx == Some(true) {
                                             hm.entry(key).or_insert(val_ex);
                                         } else {
@@ -859,14 +456,24 @@ where
                                     }
                                 }
                                 HashMapCmd::<K, V>::Get { key, resp_tx } => {
-                                    let val = hm.get(&key).and_then(|val_ex| Some(val_ex.val.clone()));
+                                    let val = hm.get_mut(&key).and_then(|val_ex| {
+                                        val_ex.call_cnt += 1;
+                                        val_ex.last_accessed = Instant::now();
+                                        Some(val_ex.val.clone())
+                                    });
                                     if let Err(_) = resp_tx.send(val) {
                                         println!("the receiver dropped");
                                     }
                                 }
                                 HashMapCmd::<K, V>::Insert { key, val, ex, nx } => {
                                     let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    let val_ex = ValueEx { val, expiration };
+                                    let call_cnt = if nx == Some(true) {
+                                        0
+                                    } else {
+                                        hm.get(&key).map_or(0, |v| v.call_cnt + 1)
+                                    };
+                                    let last_accessed = Instant::now();
+                                    let val_ex = ValueEx { val, expiration, call_cnt, last_accessed };
                                     if nx.is_some() && nx == Some(true) {
                                         hm.entry(key).or_insert(val_ex);
                                     } else {
