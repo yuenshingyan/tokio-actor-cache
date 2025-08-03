@@ -88,7 +88,7 @@ where
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -106,7 +106,7 @@ where
         &self,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         self.tx
             .send(VecCmd::Push { val, ex, nx })
@@ -277,50 +277,82 @@ where
                                 VecCmd::<V>::MPush { vals, ex, nx } => {
                                     for ((val, ex), nx) in vals.into_iter().zip(ex).zip(nx) {
                                         let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                        let call_cnt = if nx == Some(true) {
-                                            0
-                                        } else {
-                                            let mut cnt = 0;
-                                            for val_with_state in &vec {
-                                                if val_with_state.val == val {
-                                                    cnt = val_with_state.call_cnt + 1;
-                                                    break;
-                                                }
-                                            }
-
-                                            cnt
-                                        };
                                         let last_accessed = Instant::now();
-                                        let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
-                                        if nx.is_some() && nx == Some(true) && !vec.contains(&val_with_state) {
-                                            vec.push(val_with_state);
-                                        } else {
-                                            vec.push(val_with_state);
+                                        
+                                        match (vec.iter().find(|val_ex| val_ex.val == val), nx) {
+                                            (Some(val_with_state), false) => {
+                                                let call_cnt = val_with_state.call_cnt + 1;
+                                                let val_with_state = ValueWithState { 
+                                                    val, 
+                                                    expiration, 
+                                                    call_cnt, 
+                                                    last_accessed,
+                                                };
+                                                vec.push(val_with_state);
+                                            },
+                                            (None, true) | (None, false) => {
+                                                let call_cnt = 0;
+                                                let val_with_state = ValueWithState { 
+                                                    val, 
+                                                    expiration, 
+                                                    call_cnt, 
+                                                    last_accessed,
+                                                };
+                                                vec.push(val_with_state);
+                                            },
+                                            _ => (),
                                         }
                                     }
                                 }
                                 VecCmd::<V>::Push { val, ex, nx } => {
                                     let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    let call_cnt = if nx == Some(true) {
-                                        0
-                                    } else {
-                                        let mut cnt = 0;
-                                        for val_with_state in &vec {
-                                            if val_with_state.val == val {
-                                                cnt = val_with_state.call_cnt + 1;
-                                                break;
-                                            }
-                                        }
-
-                                        cnt
-                                    };
                                     let last_accessed = Instant::now();
-                                    let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
-                                    if nx.is_some() && nx == Some(true) && !vec.contains(&val_with_state) {
-                                        vec.push(val_with_state);
-                                    } else {
-                                        vec.push(val_with_state);
+                                    
+                                    match (vec.iter().find(|val_ex| val_ex.val == val), nx) {
+                                        (Some(val_with_state), false) => {
+                                            let call_cnt = val_with_state.call_cnt + 1;
+                                            let val_with_state = ValueWithState { 
+                                                val, 
+                                                expiration, 
+                                                call_cnt, 
+                                                last_accessed,
+                                            };
+                                            vec.push(val_with_state);
+                                        },
+                                        (None, true) | (None, false) => {
+                                            let call_cnt = 0;
+                                            let val_with_state = ValueWithState { 
+                                                val, 
+                                                expiration, 
+                                                call_cnt, 
+                                                last_accessed,
+                                            };
+                                            vec.push(val_with_state);
+                                        },
+                                        _ => (),
                                     }
+
+                                    // let expiration = ex.and_then(|d| Some(Instant::now() + d));
+                                    // let call_cnt = if nx == Some(true) {
+                                    //     0
+                                    // } else {
+                                    //     let mut cnt = 0;
+                                    //     for val_with_state in &vec {
+                                    //         if val_with_state.val == val {
+                                    //             cnt = val_with_state.call_cnt + 1;
+                                    //             break;
+                                    //         }
+                                    //     }
+
+                                    //     cnt
+                                    // };
+                                    // let last_accessed = Instant::now();
+                                    // let val_with_state = ValueWithState { val, expiration, call_cnt, last_accessed };
+                                    // if nx.is_some() && nx == Some(true) && !vec.contains(&val_with_state) {
+                                    //     vec.push(val_with_state);
+                                    // } else {
+                                    //     vec.push(val_with_state);
+                                    // }
                                 }
                             }
                         }
