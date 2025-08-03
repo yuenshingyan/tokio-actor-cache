@@ -92,7 +92,7 @@ where
         &self,
         vals: &[V],
         ex: &[Option<Duration>],
-        nx: &[Option<bool>],
+        nx: &[bool],
     ) -> Result<(), TokioActorCacheError> {
         if vals.len() != ex.len() || ex.len() != nx.len() {
             return Err(TokioActorCacheError::InconsistentLen);
@@ -111,7 +111,7 @@ where
         &self,
         val: V,
         ex: Option<Duration>,
-        nx: Option<bool>,
+        nx: bool,
     ) -> Result<(), TokioActorCacheError> {
         let insert_cmd = HashSetCmd::Insert { val, ex, nx };
         self.tx
@@ -281,30 +281,56 @@ where
                                 HashSetCmd::<V>::MInsert { vals, ex, nx } => {
                                     for ((val, ex), nx) in vals.into_iter().zip(ex).zip(nx) {
                                         let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                        let call_cnt = if nx == Some(true) {
-                                            0
-                                        } else {
-                                            hm.get(&val).map_or(0, |v| v.call_cnt + 1)
-                                        };
                                         let last_accessed = Instant::now();
-                                        let state = HashSetState { expiration, call_cnt, last_accessed};
-                                        if nx.is_some() && nx == Some(true) {
-                                            hm.entry(val).or_insert(state);
-                                        } else {
-                                            hm.insert(val, state);
+
+                                        match (hm.get(&val), nx) {
+                                            (Some(state), false) => {
+                                                let call_cnt = state.call_cnt + 1;
+                                                let state = HashSetState { 
+                                                    expiration, 
+                                                    call_cnt, 
+                                                    last_accessed,
+                                                };
+                                                hm.insert(val, state);
+                                            },
+                                            (None, true) | (None, false) => {
+                                                let call_cnt = 0;
+                                                let state = HashSetState { 
+                                                    expiration, 
+                                                    call_cnt, 
+                                                    last_accessed,
+                                                };
+                                                hm.insert(val, state);
+                                            },
+                                            _ => (),
                                         }
                                     }
                                 }
                                 HashSetCmd::<V>::Insert { val, ex, nx } => {
                                     let expiration = ex.and_then(|d| Some(Instant::now() + d));
-                                    let call_cnt = if nx == Some(true) {
-                                        0
-                                    } else {
-                                        hm.get(&val).map_or(0, |v| v.call_cnt + 1)
-                                    };
                                     let last_accessed = Instant::now();
-                                    let state = HashSetState { expiration, call_cnt, last_accessed };
-                                    hm.insert(val, state);
+
+                                    match (hm.get(&val), nx) {
+                                        (Some(state), false) => {
+                                            let call_cnt = state.call_cnt + 1;
+                                            let state = HashSetState { 
+                                                expiration, 
+                                                call_cnt, 
+                                                last_accessed,
+                                            };
+                                            hm.insert(val, state);
+                                        },
+                                        (None, true) | (None, false) => {
+                                            let call_cnt = 0;
+                                            let state = HashSetState { 
+                                                expiration, 
+                                                call_cnt, 
+                                                last_accessed,
+                                            };
+                                            hm.insert(val, state);
+                                        },
+                                        _ => (),
+                                    }
                                 }
                             }
                         }
