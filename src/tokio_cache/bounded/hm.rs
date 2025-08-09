@@ -6,7 +6,7 @@ use std::time::Duration;
 use crate::tokio_cache::bounded::cmd::HashMapCmd;
 use crate::tokio_cache::data_struct::ValueWithState;
 use crate::tokio_cache::error::TokioActorCacheError;
-use crate::tokio_cache::expiration_policy::ExpirationPolicy;
+use crate::tokio_cache::option::ExpirationPolicy;
 
 use tokio::sync::mpsc::Sender;
 use tokio::sync::{mpsc, oneshot};

@@ -8,7 +8,7 @@ use tokio::time::{Instant, interval};
 
 use crate::tokio_cache::data_struct::ValueWithState;
 use crate::tokio_cache::error::TokioActorCacheError;
-use crate::tokio_cache::expiration_policy::ExpirationPolicy;
+use crate::tokio_cache::option::ExpirationPolicy;
 use crate::tokio_cache::unbounded::cmd::HashMapCmd;
 
 #[derive(Debug, Clone)]

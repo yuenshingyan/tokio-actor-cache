@@ -2,7 +2,7 @@
 mod tests {
     use std::{collections::HashMap, time::Duration};
 
-    use crate::tokio_cache::{expiration_policy::ExpirationPolicy, unbounded::hm::HashMapCache};
+    use crate::tokio_cache::{option::ExpirationPolicy, unbounded::hm::HashMapCache};
 
     #[tokio::test]
     async fn test_expiration_policy_lru() {

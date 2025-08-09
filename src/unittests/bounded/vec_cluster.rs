@@ -3,7 +3,7 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::tokio_cache::{bounded::vec_cluster::VecCacheCluster, expiration_policy::ExpirationPolicy};
+    use crate::tokio_cache::{bounded::vec_cluster::VecCacheCluster, option::ExpirationPolicy};
 
     #[tokio::test]
     async fn test_try_ttl() {

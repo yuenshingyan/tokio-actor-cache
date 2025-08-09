@@ -3,7 +3,7 @@ mod tests {
 
     use std::time::Duration;
 
-    use crate::tokio_cache::{expiration_policy::ExpirationPolicy, unbounded::vec::VecCache};
+    use crate::tokio_cache::{option::ExpirationPolicy, unbounded::vec::VecCache};
 
     #[tokio::test]
     async fn test_expiration_policy_lru() {

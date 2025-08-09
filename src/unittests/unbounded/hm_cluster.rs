@@ -2,7 +2,7 @@
 mod tests {
     use std::time::Duration;
 
-    use crate::tokio_cache::{expiration_policy::ExpirationPolicy, unbounded::hm_cluster::HashMapCacheCluster};
+    use crate::tokio_cache::{option::ExpirationPolicy, unbounded::hm_cluster::HashMapCacheCluster};
 
     #[tokio::test]
     async fn test_hash_id() {

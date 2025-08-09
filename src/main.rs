@@ -20,7 +20,7 @@ pub mod tokio_cache {
     mod compute;
     mod data_struct;
     pub mod error;
-    pub mod expiration_policy;
+    pub mod option;
 }
 pub mod unittests {
     pub mod bounded {
@@ -43,11 +43,6 @@ pub mod unittests {
 
 #[tokio::main]
 async fn main() {
-    // High-Value Functionality
-    // 1. Cache Expiration Policies
-    // Support multiple expiration policies (e.g., Least Recently Used, Least Frequently Used, all-keys-random) to control which objects are evicted under memory pressure.
-    // Allow setting global and per-key TTL (time to live).
-
     // 2. Advanced Caching Patterns
     // Cache-Aside Pattern: Facilitate application-side loading and updating of cache entries.
     // Read-Through and Write-Through: Automate cache population and updates on misses/hits and writes, reducing logic in client code and keeping cached data consistent.

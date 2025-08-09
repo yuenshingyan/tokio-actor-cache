@@ -8,7 +8,7 @@ use crate::tokio_cache::bounded::cmd::HashMapCmd;
 use crate::tokio_cache::bounded::hm::HashMapCache;
 use crate::tokio_cache::compute::hash_id;
 use crate::tokio_cache::error::TokioActorCacheError;
-use crate::tokio_cache::expiration_policy::ExpirationPolicy;
+use crate::tokio_cache::option::ExpirationPolicy;
 
 #[derive(Debug, Clone)]
 pub struct HashMapCacheCluster<K, V> {

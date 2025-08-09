@@ -9,7 +9,7 @@ use crate::tokio_cache::bounded::cmd::HashSetCmd;
 use crate::tokio_cache::bounded::hs::HashSetCache;
 use crate::tokio_cache::compute::hash_id;
 use crate::tokio_cache::error::TokioActorCacheError;
-use crate::tokio_cache::expiration_policy::ExpirationPolicy;
+use crate::tokio_cache::option::ExpirationPolicy;
 
 #[derive(Debug, Clone)]
 pub struct HashSetCacheCluster<V> {

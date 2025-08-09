@@ -2,7 +2,7 @@
 mod tests {
     use std::{collections::HashSet, time::Duration};
 
-    use crate::tokio_cache::{bounded::hs_cluster::HashSetCacheCluster, expiration_policy::ExpirationPolicy};
+    use crate::tokio_cache::{bounded::hs_cluster::HashSetCacheCluster, option::ExpirationPolicy};
 
     #[tokio::test]
     async fn test_try_ttl() {

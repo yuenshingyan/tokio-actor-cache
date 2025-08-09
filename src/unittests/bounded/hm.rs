@@ -2,7 +2,7 @@
 mod tests {
     use std::time::Duration;
 
-    use crate::tokio_cache::{bounded::hm::HashMapCache, expiration_policy::ExpirationPolicy};
+    use crate::tokio_cache::{bounded::hm::HashMapCache, option::ExpirationPolicy};
 
     #[tokio::test]
     async fn test_try_replicated_data_persist() {
