@@ -157,26 +157,32 @@ where
                             ExpirationPolicy::LFU(capacity) => {
                                 if vec.len() > capacity {
                                      // Find the val with the minimum call_cnt (least frequently used).
-                                    if let Some(lfu_val_idx) = vec
-                                        .iter()
-                                        .enumerate()
-                                        .min_by_key(|(_, val_with_state)| val_with_state.call_cnt)
-                                        .map(|(i, _)| i)
-                                    {
-                                        vec.remove(lfu_val_idx);
+                                    let n_exceed = vec.len() - capacity;
+                                    for _ in 0..n_exceed {
+                                        if let Some(lfu_val_idx) = vec
+                                            .iter()
+                                            .enumerate()
+                                            .min_by_key(|(_, val_with_state)| val_with_state.call_cnt)
+                                            .map(|(i, _)| i)
+                                        {
+                                            vec.remove(lfu_val_idx);
+                                        }
                                     }
                                 }
                             },
                             ExpirationPolicy::LRU(capacity) => {
                                 if vec.len() > capacity {
                                     // Find the val with the minimum last_accessed (least recently used).
-                                    if let Some(lru_val_idx) = vec
-                                        .iter()
-                                        .enumerate()
-                                        .min_by_key(|(_, val_with_state)| val_with_state.last_accessed)
-                                        .map(|(i, _)| i)
-                                    {
-                                        vec.remove(lru_val_idx);
+                                    let n_exceed = vec.len() - capacity;
+                                    for _ in 0..n_exceed {
+                                        if let Some(lru_val_idx) = vec
+                                            .iter()
+                                            .enumerate()
+                                            .min_by_key(|(_, val_with_state)| val_with_state.last_accessed)
+                                            .map(|(i, _)| i)
+                                        {
+                                            vec.remove(lru_val_idx);
+                                        }
                                     }
                                 }
                             },

@@ -328,24 +328,30 @@ where
                             ExpirationPolicy::LFU(capacity) => {
                                 if hm.len() > capacity {
                                      // Find the key with the minimum call_cnt (least frequently used).
-                                    if let Some(lfu_key) = hm
-                                        .iter()
-                                        .min_by_key(|(_key, val_with_state)| val_with_state.call_cnt)
-                                        .map(|(key, _val_with_state)| key.clone())
-                                    {
-                                        hm.remove(&lfu_key);
+                                    let n_exceed = hm.len() - capacity;
+                                    for _ in 0..n_exceed {
+                                        if let Some(lfu_key) = hm
+                                            .iter()
+                                            .min_by_key(|(_key, val_with_state)| val_with_state.call_cnt)
+                                            .map(|(key, _val_with_state)| key.clone())
+                                        {
+                                            hm.remove(&lfu_key);
+                                        }
                                     }
                                 }
                             },
                             ExpirationPolicy::LRU(capacity) => {
                                 if hm.len() > capacity {
                                     // Find the key with the minimum last_accessed (least recently used).
-                                    if let Some(lru_key) = hm
-                                        .iter()
-                                        .min_by_key(|(_key, val_with_state)| val_with_state.last_accessed)
-                                        .map(|(key, _val_with_state)| key.clone())
-                                    {
-                                        hm.remove(&lru_key);
+                                    let n_exceed = hm.len() - capacity;
+                                    for _ in 0..n_exceed {
+                                        if let Some(lru_key) = hm
+                                            .iter()
+                                            .min_by_key(|(_key, val_with_state)| val_with_state.last_accessed)
+                                            .map(|(key, _val_with_state)| key.clone())
+                                        {
+                                            hm.remove(&lru_key);
+                                        }
                                     }
                                 }
                             },

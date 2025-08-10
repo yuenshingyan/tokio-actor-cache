@@ -161,9 +161,9 @@ where
                         // Invalidate cache according to expiration policy.
                         match expiration_policy {
                             ExpirationPolicy::LFU(capacity) => {
-                                let n_exceed = hm.len() - capacity;
                                 if hm.len() > capacity {
                                     // Find the val with the minimum call_cnt (least frequently used).
+                                    let n_exceed = hm.len() - capacity;
                                     for _ in 0..n_exceed {
                                         if let Some(lfu_val) = hm
                                             .iter()
@@ -176,9 +176,9 @@ where
                                 }
                             },
                             ExpirationPolicy::LRU(capacity) => {
-                                let n_exceed = hm.len() - capacity;
                                 if hm.len() > capacity {
                                     // Find the val with the minimum last_accessed (least recently used).
+                                    let n_exceed = hm.len() - capacity;
                                     for _ in 0..n_exceed {
                                         if let Some(lru_val) = hm
                                             .iter()
